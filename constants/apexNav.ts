@@ -1,0 +1,119 @@
+import type { LucideIcon } from "lucide-react";
+import {
+  Building2,
+  CreditCard,
+  FileText,
+  LayoutDashboard,
+  MessageCircle,
+  Puzzle,
+  Tags,
+  UserPlus,
+  Users,
+} from "lucide-react";
+
+export type ApexNavBadgeKey =
+  | "pendingSetupPayments"
+  | "pendingQuarterlyPayments"
+  | "pendingYearlyPayments"
+  | "setupPendingTenants"
+  | "unreadFeedback"
+  | "pendingModuleRequests"
+  | "disabledUsers";
+
+export type ApexNavItem = {
+  id: string;
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  matchPrefix?: boolean;
+  badgeKey?: ApexNavBadgeKey;
+};
+
+export const APEX_MAIN_NAV: ApexNavItem[] = [
+  { id: "overview", href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  {
+    id: "tenants",
+    href: "/tenants",
+    label: "All tenants",
+    icon: Building2,
+    matchPrefix: true,
+  },
+  {
+    id: "users",
+    href: "/users",
+    label: "Tenant users",
+    icon: Users,
+    matchPrefix: true,
+    badgeKey: "disabledUsers",
+  },
+];
+
+export const APEX_MONITORING_NAV: ApexNavItem[] = [
+  {
+    id: "pricing",
+    href: "/pricing",
+    label: "Pricing catalog",
+    icon: Tags,
+  },
+  {
+    id: "modules",
+    href: "/modules",
+    label: "Module requests",
+    icon: Puzzle,
+    matchPrefix: true,
+    badgeKey: "pendingModuleRequests",
+  },
+  {
+    id: "audit",
+    href: "/audit",
+    label: "Audit log",
+    icon: FileText,
+    matchPrefix: true,
+  },
+];
+
+export const APEX_ACTION_NAV: ApexNavItem[] = [
+  {
+    id: "setup-payments",
+    href: "/payments/setup",
+    label: "Setup payments",
+    icon: UserPlus,
+    badgeKey: "pendingSetupPayments",
+  },
+  {
+    id: "quarterly-payments",
+    href: "/payments/quarterly",
+    label: "Quarterly payments",
+    icon: CreditCard,
+    badgeKey: "pendingQuarterlyPayments",
+  },
+  {
+    id: "yearly-payments",
+    href: "/payments/yearly",
+    label: "Yearly payments",
+    icon: CreditCard,
+    badgeKey: "pendingYearlyPayments",
+  },
+  {
+    id: "signups",
+    href: "/signups",
+    label: "New signups",
+    icon: UserPlus,
+    badgeKey: "setupPendingTenants",
+  },
+  {
+    id: "setup-pending",
+    href: "/tenants?filter=setup_pending",
+    label: "Setup pending",
+    icon: Users,
+    badgeKey: "setupPendingTenants",
+  },
+  {
+    id: "feedback",
+    href: "/feedback",
+    label: "Property chat",
+    icon: MessageCircle,
+    matchPrefix: true,
+    badgeKey: "unreadFeedback",
+  },
+];

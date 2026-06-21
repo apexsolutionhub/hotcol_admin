@@ -1,0 +1,802 @@
+import { apexGraphql } from "./api";
+import {
+  invalidateApexListCache,
+  readListCache,
+  writeListCache,
+} from "./graphqlListCache";
+import { persistApexSession, type ApexMember } from "./auth";
+
+export type DashboardSummary = {
+  pendingSetupPayments: number;
+  pendingQuarterlyPayments: number;
+  pendingYearlyPayments: number;
+  unreadFeedback: number;
+  suspendedTenants: number;
+  bannedTenants: number;
+  setupPendingTenants: number;
+  billingHoldTenants: number;
+  graceOrExpiredTenants: number;
+  trialsEndingSoon: number;
+  totalTenants: number;
+  totalUsers: number;
+  disabledUsers: number;
+  pendingModuleRequests: number;
+  tenantsByBusinessType: { businessType: string; label: string; count: number }[];
+};
+
+export type SignupPipelineRow = {
+  tinNumber: string;
+  hotelDisplayName: string;
+  businessType: string | null;
+  ownerUserName: string;
+  setupFeeETB: number;
+  paymentTransactionRef: string | null;
+  paymentChannel: string | null;
+  registeredAt: string;
+  pendingSetupPaymentId: number | null;
+};
+
+export type TenantBillingInput = {
+  setupFeeETB?: number;
+  quarterlyFeeETB?: number;
+  billingNotes?: string | null;
+  isIllustrationTenant?: boolean;
+  billingHold?: boolean;
+  freeTrialEndsAt?: string | null;
+};
+
+export type PricingRuleRow = {
+  id: number;
+  businessType: string;
+  modulesKey: string;
+  modules: string[];
+  setupFeeETB: number;
+  quarterlyFeeETB: number;
+  description: string | null;
+  isActive: boolean;
+  sortOrder: number;
+  updatedAt: string;
+};
+
+export type PricingRuleInput = {
+  id?: number;
+  businessType: string;
+  modules: string[];
+  setupFeeETB: number;
+  quarterlyFeeETB: number;
+  description?: string | null;
+  isActive?: boolean;
+  sortOrder?: number;
+};
+
+export type TenantListItem = {
+  tinNumber: string;
+  hotelDisplayName: string;
+  businessType: string | null;
+  accountStatus: string;
+  subscriptionStatus: string;
+  setupFeeApproved: boolean;
+  setupFeeETB: number;
+  quarterlyFeeETB: number;
+  ownerUserName: string;
+  createdAt: string | null;
+  billingHold: boolean;
+  isIllustrationTenant: boolean;
+  unreadFeedback: number;
+};
+
+export type TenantDetail = {
+  tinNumber: string;
+  hotelDisplayName: string;
+  businessType: string | null;
+  logoUrl: string | null;
+  accountStatus: string;
+  subscriptionStatus: string;
+  modules: string[];
+  setupFeeETB: number;
+  quarterlyFeeETB: number;
+  suggestedSetupFeeETB: number;
+  suggestedQuarterlyFeeETB: number;
+  feesManuallySet: boolean;
+  pricingRuleId: number | null;
+  feesMatchCatalog: boolean;
+  setupFeeApproved: boolean;
+  subscriptionPaymentApproved: boolean;
+  subscriptionPaidUntil: string | null;
+  paidQuartersCount: number;
+  billingHold: boolean;
+  billingStartedAt: string | null;
+  isIllustrationTenant: boolean;
+  freeTrialEndsAt: string | null;
+  billingNotes: string | null;
+  paymentChannel: string | null;
+  paymentTransactionRef: string | null;
+  ownerUserName: string;
+  suspendedReason: string | null;
+  bannedReason: string | null;
+  users: {
+    id: number;
+    UserName: string;
+    Role: string;
+    loginDisabled: boolean;
+    loginDisabledReason: string | null;
+    createdAt: string;
+  }[];
+  recentPayments: {
+    id: number;
+    paymentKind: string;
+    amountETB: number;
+    status: string;
+    transactionRef: string;
+    submittedAt: string;
+  }[];
+  operationalSnapshot: {
+    staffCount: number;
+    ordersToday: number;
+    openOrders: number;
+    pendingPurchaseRequests: number;
+    pendingStockOutRequests: number;
+    pendingItemRegistrations: number;
+  };
+};
+
+export type PaymentRow = {
+  id: number;
+  tinNumber: string;
+  paymentKind: string;
+  amountETB: number;
+  paymentChannel: string;
+  transactionRef: string;
+  status: string;
+  submittedAt: string;
+  hotelDisplayName: string | null;
+};
+
+export type TenantUserMonitoringRow = {
+  id: number;
+  userName: string;
+  role: string;
+  tinNumber: string;
+  hotelDisplayName: string;
+  businessType: string;
+  loginDisabled: boolean;
+  loginDisabledReason: string | null;
+  createdAt: string | null;
+};
+
+export type AuditLogRow = {
+  id: number;
+  action: string;
+  targetTinNumber: string | null;
+  targetUserId: number | null;
+  reason: string | null;
+  apexMemberName: string | null;
+  createdAt: string;
+};
+
+export type ModuleChangeRequestRow = {
+  id: number;
+  tinNumber: string;
+  hotelDisplayName: string;
+  status: string;
+  requestedBySide: string;
+  requestNote: string | null;
+  requestedModules: string[];
+  createdAt: string;
+};
+
+export type FeedbackThreadRow = {
+  id: number;
+  tinNumber: string;
+  hotelDisplayName: string;
+  status: string;
+  unreadFromTenant: number;
+  updatedAt: string;
+  lastMessage?: { body: string; senderSide: string; createdAt: string } | null;
+};
+
+export type FeedbackDirectoryRow = {
+  tinNumber: string;
+  hotelDisplayName: string;
+  threadId: number | null;
+  chatStatus: string;
+  unreadFromTenant: number;
+  updatedAt: string | null;
+  lastMessage?: { body: string; senderSide: string; createdAt: string } | null;
+};
+
+const listInflight = new Map<string, Promise<unknown>>();
+
+function dedupeApexRead<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const cached = readListCache<T>(key);
+  if (cached != null) return Promise.resolve(cached);
+
+  const existing = listInflight.get(key);
+  if (existing) return existing as Promise<T>;
+
+  const p = (async () => {
+    try {
+      const result = await run();
+      writeListCache(key, result);
+      return result;
+    } finally {
+      listInflight.delete(key);
+    }
+  })();
+  listInflight.set(key, p);
+  return p;
+}
+
+export function invalidateApexCaches(prefix?: string): void {
+  invalidateApexListCache(prefix);
+}
+
+function invalidateTenantDetailCaches() {
+  invalidateApexCaches("apex:tenant:");
+  invalidateApexCaches("apex:tenant-payments:");
+}
+
+function afterPaymentMutation() {
+  invalidateApexCaches("apex:summary");
+  invalidateApexCaches("apex:payments");
+  invalidateApexCaches("apex:tenants");
+  invalidateApexCaches("apex:signups");
+  invalidateTenantDetailCaches();
+}
+
+function afterTenantAccountMutation() {
+  invalidateApexCaches("apex:summary");
+  invalidateApexCaches("apex:tenants");
+  invalidateApexCaches("apex:signups");
+  invalidateTenantDetailCaches();
+}
+
+function afterUserMutation() {
+  invalidateApexCaches("apex:summary");
+  invalidateApexCaches("apex:users");
+  invalidateTenantDetailCaches();
+}
+
+function afterBillingMutation() {
+  invalidateApexCaches("apex:summary");
+  invalidateApexCaches("apex:tenants");
+  invalidateApexCaches("apex:payments");
+  invalidateTenantDetailCaches();
+}
+
+function afterModuleMutation() {
+  invalidateApexCaches("apex:summary");
+  invalidateApexCaches("apex:modules");
+  invalidateApexCaches("apex:tenants");
+  invalidateTenantDetailCaches();
+}
+
+function afterPricingMutation() {
+  invalidateApexCaches("apex:pricing");
+  invalidateApexCaches("apex:tenants");
+  invalidateTenantDetailCaches();
+}
+
+export function mapApexLoginError(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error ?? "");
+  const m = raw.toLowerCase();
+  if (m.includes("invalid username or password")) {
+    return "Invalid username or password.";
+  }
+  if (m.includes("network") || m.includes("cannot reach")) {
+    return "Cannot reach the Apex API. Start GraphQl-BackEnd with npm run dev.";
+  }
+  return raw || "Login failed";
+}
+
+export async function apexLoginAction(
+  UserName: string,
+  Password: string,
+): Promise<{ token: string; member: ApexMember }> {
+  const data = await apexGraphql<{
+    apexLogin: { token: string; member: ApexMember };
+  }>(
+    `mutation ApexLogin($UserName: String!, $Password: String!) {
+      apexLogin(UserName: $UserName, Password: $Password) {
+        token
+        member { id UserName displayName role }
+      }
+    }`,
+    { UserName: UserName.trim(), Password },
+  );
+  persistApexSession(data.apexLogin.token, data.apexLogin.member);
+  return data.apexLogin;
+}
+
+export async function fetchDashboardSummary() {
+  return dedupeApexRead("apex:summary", async () => {
+    const data = await apexGraphql<{ apexDashboardSummary: DashboardSummary }>(`
+      query { apexDashboardSummary {
+        pendingSetupPayments pendingQuarterlyPayments pendingYearlyPayments unreadFeedback
+        suspendedTenants bannedTenants setupPendingTenants
+        billingHoldTenants graceOrExpiredTenants trialsEndingSoon
+        totalTenants totalUsers disabledUsers pendingModuleRequests
+        tenantsByBusinessType { businessType label count }
+      }}
+    `);
+    return data.apexDashboardSummary;
+  });
+}
+
+export async function fetchTenants(search?: string, businessType?: string) {
+  const key = `apex:tenants:${(search || "").trim().toLowerCase()}:${businessType || "all"}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexTenants: TenantListItem[] }>(
+      `query($search: String, $businessType: String) {
+        apexTenants(search: $search, businessType: $businessType) {
+          tinNumber hotelDisplayName businessType accountStatus subscriptionStatus
+          setupFeeApproved setupFeeETB quarterlyFeeETB ownerUserName createdAt
+          billingHold isIllustrationTenant unreadFeedback
+        }
+      }`,
+      { search: search?.trim() || null, businessType: businessType || null },
+    );
+    return data.apexTenants;
+  });
+}
+
+export async function fetchTenantDetail(tinNumber: string) {
+  const key = `apex:tenant:${tinNumber}`;
+  return dedupeApexRead(key, async () => {
+  const data = await apexGraphql<{ apexTenantDetail: TenantDetail }>(
+    `query($tin: String!) {
+      apexTenantDetail(tinNumber: $tin) {
+        tinNumber hotelDisplayName businessType logoUrl accountStatus subscriptionStatus
+        modules setupFeeETB quarterlyFeeETB suggestedSetupFeeETB suggestedQuarterlyFeeETB
+        feesManuallySet pricingRuleId feesMatchCatalog
+        setupFeeApproved subscriptionPaymentApproved
+        subscriptionPaidUntil paidQuartersCount billingHold billingStartedAt
+        isIllustrationTenant freeTrialEndsAt billingNotes paymentChannel paymentTransactionRef
+        ownerUserName suspendedReason bannedReason
+        users { id UserName Role loginDisabled loginDisabledReason createdAt }
+        recentPayments { id paymentKind amountETB status transactionRef submittedAt }
+        operationalSnapshot {
+          staffCount ordersToday openOrders
+          pendingPurchaseRequests pendingStockOutRequests pendingItemRegistrations
+        }
+      }
+    }`,
+    { tin: tinNumber },
+  );
+  return data.apexTenantDetail;
+  });
+}
+
+export async function fetchPendingPayments(kind?: string) {
+  const key = `apex:payments:${kind || "all"}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexPendingPayments: PaymentRow[] }>(
+      `query($kind: String) {
+        apexPendingPayments(kind: $kind) {
+          id tinNumber paymentKind amountETB paymentChannel transactionRef
+          status submittedAt hotelDisplayName
+        }
+      }`,
+      { kind: kind || null },
+    );
+    return data.apexPendingPayments;
+  });
+}
+
+export async function fetchFeedbackThreads(limit = 500) {
+  const key = `apex:feedback:${limit}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexFeedbackThreads: FeedbackThreadRow[] }>(
+      `query($limit: Int) {
+        apexFeedbackThreads(limit: $limit) {
+          id tinNumber hotelDisplayName status unreadFromTenant updatedAt
+          lastMessage { body senderSide createdAt }
+        }
+      }`,
+      { limit },
+    );
+    return data.apexFeedbackThreads;
+  });
+}
+
+export async function fetchFeedbackDirectory(search?: string) {
+  const key = `apex:feedback-dir:${(search || "").trim().toLowerCase()}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexFeedbackDirectory: FeedbackDirectoryRow[] }>(
+      `query($search: String) {
+        apexFeedbackDirectory(search: $search) {
+          tinNumber hotelDisplayName threadId chatStatus
+          unreadFromTenant updatedAt
+          lastMessage { body senderSide createdAt }
+        }
+      }`,
+      { search: search?.trim() || null },
+    );
+    return data.apexFeedbackDirectory;
+  });
+}
+
+export async function fetchFeedbackThread(threadId: number) {
+  const data = await apexGraphql<{
+    apexFeedbackThread: {
+      id: number;
+      tinNumber: string;
+      hotelDisplayName: string;
+      status: string;
+      messages: {
+        id: number;
+        senderSide: string;
+        tenantUserName: string | null;
+        apexDisplayName: string | null;
+        body: string;
+        imageUrl: string | null;
+        createdAt: string;
+      }[];
+    };
+  }>(
+    `query($id: Int!) {
+      apexFeedbackThread(threadId: $id) {
+        id tinNumber hotelDisplayName status
+        messages {
+          id senderSide tenantUserName apexDisplayName body imageUrl createdAt
+        }
+      }
+    }`,
+    { id: threadId },
+  );
+  return data.apexFeedbackThread;
+}
+
+export async function approveSetup(tinNumber: string) {
+  await apexGraphql(`mutation($tin: String!) { approveTenantSetupPayment(tinNumber: $tin) }`, {
+    tin: tinNumber,
+  });
+  afterPaymentMutation();
+}
+
+export async function rejectSetup(tinNumber: string, reason: string) {
+  await apexGraphql(
+    `mutation($tin: String!, $reason: String!) {
+      rejectTenantSetupPayment(tinNumber: $tin, reason: $reason)
+    }`,
+    { tin: tinNumber, reason: reason.trim() },
+  );
+  afterPaymentMutation();
+}
+
+export async function approveQuarterly(tinNumber: string) {
+  await apexGraphql(`mutation($tin: String!) { approveTenantQuarterPayment(tinNumber: $tin) }`, {
+    tin: tinNumber,
+  });
+  afterPaymentMutation();
+}
+
+export async function approveYearly(tinNumber: string) {
+  await apexGraphql(`mutation($tin: String!) { approveTenantYearlyPayment(tinNumber: $tin) }`, {
+    tin: tinNumber,
+  });
+  afterPaymentMutation();
+}
+
+export async function rejectPayment(submissionId: number, reason: string) {
+  const note = reason.trim();
+  if (!note) throw new Error("Rejection reason is required");
+  await apexGraphql(
+    `mutation($id: Int!, $reason: String!) {
+      rejectTenantPayment(submissionId: $id, reason: $reason)
+    }`,
+    { id: submissionId, reason: note },
+  );
+  afterPaymentMutation();
+}
+
+export async function releaseHold(tinNumber: string) {
+  await apexGraphql(`mutation($tin: String!) { releaseTenantBillingHold(tinNumber: $tin) }`, {
+    tin: tinNumber,
+  });
+  afterBillingMutation();
+}
+
+export async function suspendTenant(tinNumber: string, reason: string) {
+  await apexGraphql(`mutation($tin: String!, $reason: String!) { suspendTenant(tinNumber: $tin, reason: $reason) }`, {
+    tin: tinNumber,
+    reason,
+  });
+  afterTenantAccountMutation();
+}
+
+export async function unsuspendTenant(tinNumber: string) {
+  await apexGraphql(`mutation($tin: String!) { unsuspendTenant(tinNumber: $tin) }`, { tin: tinNumber });
+  afterTenantAccountMutation();
+}
+
+export async function banTenant(tinNumber: string, reason: string) {
+  await apexGraphql(`mutation($tin: String!, $reason: String!) { banTenant(tinNumber: $tin, reason: $reason) }`, {
+    tin: tinNumber,
+    reason,
+  });
+  afterTenantAccountMutation();
+}
+
+export async function unbanTenant(tinNumber: string) {
+  await apexGraphql(`mutation($tin: String!) { unbanTenant(tinNumber: $tin) }`, { tin: tinNumber });
+  afterTenantAccountMutation();
+}
+
+export async function setUserLoginDisabled(userId: number, disabled: boolean, reason?: string) {
+  await apexGraphql(
+    `mutation($id: Int!, $disabled: Boolean!, $reason: String) {
+      setUserLoginDisabled(userId: $id, disabled: $disabled, reason: $reason)
+    }`,
+    { id: userId, disabled, reason: reason || null },
+  );
+  afterUserMutation();
+}
+
+export async function sendApexFeedback(threadId: number, body: string) {
+  await apexGraphql(
+    `mutation($threadId: Int!, $body: String) {
+      sendApexFeedbackMessage(threadId: $threadId, body: $body) { id }
+    }`,
+    { threadId, body },
+  );
+  invalidateApexCaches("apex:feedback");
+  invalidateApexCaches("apex:feedback-dir");
+  invalidateApexCaches("apex:summary");
+}
+
+export async function startApexChatWithTenant(tinNumber: string, body: string) {
+  const text = body.trim();
+  if (!text) throw new Error("Opening message is required");
+  const data = await apexGraphql<{
+    startApexChatWithTenant: { id: number };
+  }>(
+    `mutation($tin: String!, $body: String!) {
+      startApexChatWithTenant(tinNumber: $tin, body: $body) {
+        id tinNumber hotelDisplayName status
+      }
+    }`,
+    { tin: tinNumber, body: text },
+  );
+  invalidateApexCaches("apex:feedback");
+  invalidateApexCaches("apex:feedback-dir");
+  invalidateApexCaches("apex:summary");
+  return data.startApexChatWithTenant;
+}
+
+export async function fetchTenantUsers(search?: string, businessType?: string) {
+  const key = `apex:users:${(search || "").trim().toLowerCase()}:${businessType || "all"}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexTenantUsers: TenantUserMonitoringRow[] }>(
+      `query($search: String, $businessType: String) {
+        apexTenantUsers(search: $search, businessType: $businessType) {
+          id userName role tinNumber hotelDisplayName businessType
+          loginDisabled loginDisabledReason createdAt
+        }
+      }`,
+      { search: search?.trim() || null, businessType: businessType || null },
+    );
+    return data.apexTenantUsers;
+  });
+}
+
+export async function fetchAuditLogs(limit = 100) {
+  const key = `apex:audit:${limit}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexAuditLogs: AuditLogRow[] }>(
+      `query($limit: Int) {
+        apexAuditLogs(limit: $limit) {
+          id action targetTinNumber targetUserId reason apexMemberName createdAt
+        }
+      }`,
+      { limit },
+    );
+    return data.apexAuditLogs;
+  });
+}
+
+export async function fetchModuleChangeRequests(status?: string) {
+  const key = `apex:modules:${status || "all"}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexModuleChangeRequests: ModuleChangeRequestRow[] }>(
+      `query($status: String) {
+        apexModuleChangeRequests(status: $status) {
+          id tinNumber hotelDisplayName status requestedBySide requestNote
+          requestedModules createdAt
+        }
+      }`,
+      { status: status || null },
+    );
+    return data.apexModuleChangeRequests;
+  });
+}
+
+export async function fetchSignupPipeline(limit = 50) {
+  const key = `apex:signups:${limit}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexSignupPipeline: SignupPipelineRow[] }>(
+      `query($limit: Int) {
+        apexSignupPipeline(limit: $limit) {
+          tinNumber hotelDisplayName businessType ownerUserName setupFeeETB
+          paymentTransactionRef paymentChannel registeredAt pendingSetupPaymentId
+        }
+      }`,
+      { limit },
+    );
+    return data.apexSignupPipeline;
+  });
+}
+
+export async function fetchTenantPaymentHistory(tinNumber: string, limit = 50) {
+  const key = `apex:tenant-payments:${tinNumber}:${limit}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexTenantPaymentHistory: TenantDetail["recentPayments"] }>(
+      `query($tin: String!, $limit: Int) {
+        apexTenantPaymentHistory(tinNumber: $tin, limit: $limit) {
+          id paymentKind amountETB status transactionRef submittedAt
+        }
+      }`,
+      { tin: tinNumber, limit },
+    );
+    return data.apexTenantPaymentHistory;
+  });
+}
+
+export async function fetchFeedbackTenantContext(tinNumber: string) {
+  return fetchTenantDetail(tinNumber);
+}
+
+export async function updateTenantBilling(tinNumber: string, input: TenantBillingInput) {
+  await apexGraphql(
+    `mutation($tin: String!, $setup: Int, $quarterly: Int, $notes: String, $illustration: Boolean, $hold: Boolean, $trial: String) {
+      updateTenantBilling(
+        tinNumber: $tin
+        setupFeeETB: $setup
+        quarterlyFeeETB: $quarterly
+        billingNotes: $notes
+        isIllustrationTenant: $illustration
+        billingHold: $hold
+        freeTrialEndsAt: $trial
+      )
+    }`,
+    {
+      tin: tinNumber,
+      setup: input.setupFeeETB ?? null,
+      quarterly: input.quarterlyFeeETB ?? null,
+      notes: input.billingNotes ?? null,
+      illustration: input.isIllustrationTenant ?? null,
+      hold: input.billingHold ?? null,
+      trial: input.freeTrialEndsAt ?? null,
+    },
+  );
+  afterBillingMutation();
+}
+
+export async function updateTenantModules(
+  tinNumber: string,
+  modules: string[],
+  recalcFees?: boolean,
+) {
+  await apexGraphql(
+    `mutation($tin: String!, $modules: JSON!, $recalc: Boolean) {
+      updateTenantModules(tinNumber: $tin, modules: $modules, recalcFees: $recalc)
+    }`,
+    { tin: tinNumber, modules, recalc: recalcFees ?? null },
+  );
+  afterModuleMutation();
+}
+
+export async function applySuggestedTenantFees(tinNumber: string) {
+  await apexGraphql(
+    `mutation($tin: String!) { applySuggestedTenantFees(tinNumber: $tin) }`,
+    { tin: tinNumber },
+  );
+  afterBillingMutation();
+}
+
+export async function fetchPricingRules(businessType?: string) {
+  const key = `apex:pricing:${businessType || "all"}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexPricingRules: PricingRuleRow[] }>(
+      `query($bt: String) {
+        apexPricingRules(businessType: $bt) {
+          id businessType modulesKey modules setupFeeETB quarterlyFeeETB
+          description isActive sortOrder updatedAt
+        }
+      }`,
+      { bt: businessType || null },
+    );
+    return data.apexPricingRules;
+  });
+}
+
+export async function upsertPricingRule(input: PricingRuleInput) {
+  const data = await apexGraphql<{ upsertPricingRule: PricingRuleRow }>(
+    `mutation(
+      $id: Int
+      $bt: String!
+      $modules: JSON!
+      $setup: Int!
+      $quarterly: Int!
+      $desc: String
+      $active: Boolean
+      $sort: Int
+    ) {
+      upsertPricingRule(
+        id: $id
+        businessType: $bt
+        modules: $modules
+        setupFeeETB: $setup
+        quarterlyFeeETB: $quarterly
+        description: $desc
+        isActive: $active
+        sortOrder: $sort
+      ) {
+        id businessType modulesKey modules setupFeeETB quarterlyFeeETB
+        description isActive sortOrder updatedAt
+      }
+    }`,
+    {
+      id: input.id ?? null,
+      bt: input.businessType,
+      modules: input.modules,
+      setup: input.setupFeeETB,
+      quarterly: input.quarterlyFeeETB,
+      desc: input.description ?? null,
+      active: input.isActive ?? null,
+      sort: input.sortOrder ?? null,
+    },
+  );
+  afterPricingMutation();
+  return data.upsertPricingRule;
+}
+
+export async function setPricingRuleActive(id: number, isActive: boolean) {
+  await apexGraphql(
+    `mutation($id: Int!, $active: Boolean!) {
+      setPricingRuleActive(id: $id, isActive: $active)
+    }`,
+    { id, active: isActive },
+  );
+  afterPricingMutation();
+}
+
+export async function syncTenantStaffModules(tinNumber: string) {
+  await apexGraphql(
+    `mutation($tin: String!) { syncTenantStaffModules(tinNumber: $tin) }`,
+    { tin: tinNumber },
+  );
+  afterModuleMutation();
+}
+
+export async function approveModuleChangeRequest(requestId: number, reviewNote?: string) {
+  await apexGraphql(
+    `mutation($id: Int!, $note: String) {
+      approveModuleChangeRequest(requestId: $id, reviewNote: $note)
+    }`,
+    { id: requestId, note: reviewNote || null },
+  );
+  afterModuleMutation();
+}
+
+export async function rejectModuleChangeRequest(requestId: number, reviewNote?: string) {
+  await apexGraphql(
+    `mutation($id: Int!, $note: String) {
+      rejectModuleChangeRequest(requestId: $id, reviewNote: $note)
+    }`,
+    { id: requestId, note: reviewNote || null },
+  );
+  afterModuleMutation();
+}
+
+export async function closeFeedbackThread(threadId: number, reason?: string) {
+  await apexGraphql(
+    `mutation($id: Int!, $reason: String) {
+      closeFeedbackThread(threadId: $id, reason: $reason)
+    }`,
+    { id: threadId, reason: reason || null },
+  );
+  invalidateApexCaches("apex:feedback");
+  invalidateApexCaches("apex:feedback-dir");
+  invalidateApexCaches("apex:summary");
+}

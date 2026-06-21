@@ -1,0 +1,110 @@
+"use client";
+
+import Link from "next/link";
+import {
+  Building2,
+  CreditCard,
+  MessageCircle,
+  Tags,
+  UserPlus,
+  Users,
+} from "lucide-react";
+import type { DashboardSummary } from "@/lib/apex/actions";
+import { cn } from "@/lib/utils";
+
+const ACTIONS = [
+  {
+    href: "/payments/setup",
+    label: "Setup payments",
+    icon: UserPlus,
+    countKey: "pendingSetupPayments" as const,
+    tone: "gold",
+  },
+  {
+    href: "/payments/quarterly",
+    label: "Quarterly",
+    icon: CreditCard,
+    countKey: "pendingQuarterlyPayments" as const,
+    tone: "teal",
+  },
+  {
+    href: "/payments/yearly",
+    label: "Yearly",
+    icon: CreditCard,
+    countKey: "pendingYearlyPayments" as const,
+    tone: "violet",
+  },
+  {
+    href: "/feedback",
+    label: "Property chat",
+    icon: MessageCircle,
+    countKey: "unreadFeedback" as const,
+    tone: "teal",
+  },
+  {
+    href: "/signups",
+    label: "New signups",
+    icon: UserPlus,
+    countKey: "setupPendingTenants" as const,
+    tone: "gold",
+  },
+  {
+    href: "/tenants",
+    label: "All tenants",
+    icon: Building2,
+    tone: "neutral",
+  },
+  {
+    href: "/users",
+    label: "Tenant users",
+    icon: Users,
+    countKey: "disabledUsers" as const,
+    tone: "neutral",
+  },
+  {
+    href: "/pricing",
+    label: "Pricing catalog",
+    icon: Tags,
+    tone: "neutral",
+  },
+] as const;
+
+const TONE_CLASS: Record<string, string> = {
+  gold: "apex-quick-pill-gold",
+  teal: "apex-quick-pill-teal",
+  violet: "apex-quick-pill-violet",
+  neutral: "apex-quick-pill-neutral",
+};
+
+export function ApexDashboardQuickActions({ summary }: { summary: DashboardSummary }) {
+  return (
+    <div className="apex-quick-actions-scroll -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+      {ACTIONS.map((action) => {
+        const Icon = action.icon;
+        const count =
+          "countKey" in action && action.countKey
+            ? summary[action.countKey]
+            : 0;
+        return (
+          <Link
+            key={action.href}
+            href={action.href}
+            className={cn(
+              "apex-quick-pill group shrink-0",
+              TONE_CLASS[action.tone],
+              count > 0 && "apex-quick-pill-attention",
+            )}
+          >
+            <Icon className="h-3.5 w-3.5 shrink-0 opacity-80 transition-transform group-hover:scale-110" />
+            <span>{action.label}</span>
+            {count > 0 ? (
+              <span className="rounded-full bg-linear-to-r from-primary to-[oklch(0.72_0.08_85)] px-1.5 py-px text-[10px] font-bold tabular-nums text-[oklch(0.12_0.02_265)]">
+                {count > 99 ? "99+" : count}
+              </span>
+            ) : null}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
