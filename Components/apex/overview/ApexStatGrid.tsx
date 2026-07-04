@@ -64,6 +64,12 @@ const STATS: {
     icon: AlertTriangle,
   },
   { key: "trialsEndingSoon", title: "Trials ending (7d)", icon: Clock },
+  {
+    key: "trialExpiredTenants",
+    title: "Trial expired (awaiting setup)",
+    href: "/payments/setup",
+    icon: Clock,
+  },
   { key: "suspendedTenants", title: "Suspended", icon: AlertTriangle },
   { key: "bannedTenants", title: "Banned", icon: Ban },
 ];

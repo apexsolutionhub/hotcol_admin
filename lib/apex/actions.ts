@@ -17,6 +17,7 @@ export type DashboardSummary = {
   billingHoldTenants: number;
   graceOrExpiredTenants: number;
   trialsEndingSoon: number;
+  trialExpiredTenants: number;
   totalTenants: number;
   totalUsers: number;
   disabledUsers: number;
@@ -314,7 +315,7 @@ export async function fetchDashboardSummary() {
       query { apexDashboardSummary {
         pendingSetupPayments pendingQuarterlyPayments pendingYearlyPayments unreadFeedback
         suspendedTenants bannedTenants setupPendingTenants
-        billingHoldTenants graceOrExpiredTenants trialsEndingSoon
+        billingHoldTenants graceOrExpiredTenants trialsEndingSoon trialExpiredTenants
         totalTenants totalUsers disabledUsers pendingModuleRequests
         tenantsByBusinessType { businessType label count }
       }}

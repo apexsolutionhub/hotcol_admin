@@ -9,6 +9,7 @@ export type ApexStatKey =
   | "billingHoldTenants"
   | "graceOrExpiredTenants"
   | "trialsEndingSoon"
+  | "trialExpiredTenants"
   | "suspendedTenants"
   | "bannedTenants";
 
@@ -71,6 +72,13 @@ export const APEX_STAT_STYLES: Record<
     icon: "bg-[oklch(0.3_0.05_300)] text-[oklch(0.9_0.04_300)] ring-1 ring-[oklch(0.62_0.1_300/0.35)] shadow-[0_0_16px_-4px_oklch(0.62_0.1_300/0.28)]",
     card: "border-[oklch(0.55_0.1_300/0.18)]",
     value: "text-[oklch(0.92_0.03_300)]",
+  },
+  trialExpiredTenants: {
+    accent: "apex-stat-accent-danger",
+    topBar: "apex-stat-topbar-danger",
+    icon: "bg-[oklch(0.32_0.06_25)] text-[oklch(0.92_0.04_25)] ring-1 ring-[oklch(0.65_0.14_25/0.4)] shadow-[0_0_16px_-4px_oklch(0.65_0.14_25/0.35)]",
+    card: "border-[oklch(0.58_0.12_25/0.25)]",
+    value: "text-[oklch(0.94_0.04_25)]",
   },
   suspendedTenants: {
     accent: "apex-stat-accent-warning",
