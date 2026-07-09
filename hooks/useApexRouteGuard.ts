@@ -1,20 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getApexToken } from "@/lib/apex/auth";
 
 export function useApexRouteGuard() {
   const router = useRouter();
-  const [ready, setReady] = useState(false);
+  const authed = Boolean(getApexToken());
 
   useEffect(() => {
     if (!getApexToken()) {
       router.push("/");
-      return;
     }
-    setReady(true);
   }, [router]);
 
-  return ready;
+  return authed;
 }

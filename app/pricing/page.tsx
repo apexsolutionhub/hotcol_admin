@@ -25,8 +25,27 @@ export default function PricingCatalogPage() {
   }, []);
 
   useEffect(() => {
-    void reload();
-  }, [reload]);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await fetchPricingRules();
+        if (!cancelled) {
+          setRules(rows);
+          setLoadError(null);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : "Failed to load pricing catalog";
+          setLoadError(msg);
+          setRules([]);
+          toast.error(msg);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (rules === null) {
     return <ApexPageLoader label="Loading pricing catalog…" />;
