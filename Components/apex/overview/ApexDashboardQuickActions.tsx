@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   Building2,
   CreditCard,
@@ -9,11 +8,14 @@ import {
   UserPlus,
   Users,
 } from "lucide-react";
+import Link from "next/link";
 import type { DashboardSummary } from "@/lib/apex/actions";
+import { useCreateTenantSheet } from "@/lib/apex/create-tenant-sheet";
 import { cn } from "@/lib/utils";
 
 const ACTIONS = [
   {
+    id: "setup-payments",
     href: "/payments/setup",
     label: "Setup payments",
     icon: UserPlus,
@@ -21,6 +23,7 @@ const ACTIONS = [
     tone: "gold",
   },
   {
+    id: "quarterly-payments",
     href: "/payments/quarterly",
     label: "Quarterly",
     icon: CreditCard,
@@ -28,6 +31,7 @@ const ACTIONS = [
     tone: "teal",
   },
   {
+    id: "yearly-payments",
     href: "/payments/yearly",
     label: "Yearly",
     icon: CreditCard,
@@ -35,6 +39,7 @@ const ACTIONS = [
     tone: "violet",
   },
   {
+    id: "feedback",
     href: "/feedback",
     label: "Property chat",
     icon: MessageCircle,
@@ -42,6 +47,7 @@ const ACTIONS = [
     tone: "teal",
   },
   {
+    id: "signups",
     href: "/signups",
     label: "New signups",
     icon: UserPlus,
@@ -49,12 +55,21 @@ const ACTIONS = [
     tone: "gold",
   },
   {
+    id: "create-tenant",
+    sheetAction: "create-tenant" as const,
+    label: "Create tenant",
+    icon: UserPlus,
+    tone: "gold",
+  },
+  {
+    id: "tenants",
     href: "/tenants",
     label: "All tenants",
     icon: Building2,
     tone: "neutral",
   },
   {
+    id: "users",
     href: "/users",
     label: "Tenant users",
     icon: Users,
@@ -62,6 +77,7 @@ const ACTIONS = [
     tone: "neutral",
   },
   {
+    id: "pricing",
     href: "/pricing",
     label: "Pricing catalog",
     icon: Tags,
@@ -77,6 +93,8 @@ const TONE_CLASS: Record<string, string> = {
 };
 
 export function ApexDashboardQuickActions({ summary }: { summary: DashboardSummary }) {
+  const { openCreateTenantSheet } = useCreateTenantSheet();
+
   return (
     <div className="apex-quick-actions-scroll -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
       {ACTIONS.map((action) => {
@@ -85,16 +103,28 @@ export function ApexDashboardQuickActions({ summary }: { summary: DashboardSumma
           "countKey" in action && action.countKey
             ? summary[action.countKey]
             : 0;
+        const className = cn(
+          "apex-quick-pill group shrink-0",
+          TONE_CLASS[action.tone],
+          count > 0 && "apex-quick-pill-attention",
+        );
+
+        if ("sheetAction" in action && action.sheetAction === "create-tenant") {
+          return (
+            <button
+              key={action.id}
+              type="button"
+              className={className}
+              onClick={() => openCreateTenantSheet()}
+            >
+              <Icon className="h-3.5 w-3.5 shrink-0 opacity-80 transition-transform group-hover:scale-110" />
+              <span>{action.label}</span>
+            </button>
+          );
+        }
+
         return (
-          <Link
-            key={action.href}
-            href={action.href}
-            className={cn(
-              "apex-quick-pill group shrink-0",
-              TONE_CLASS[action.tone],
-              count > 0 && "apex-quick-pill-attention",
-            )}
-          >
+          <Link key={action.id} href={action.href!} className={className}>
             <Icon className="h-3.5 w-3.5 shrink-0 opacity-80 transition-transform group-hover:scale-110" />
             <span>{action.label}</span>
             {count > 0 ? (

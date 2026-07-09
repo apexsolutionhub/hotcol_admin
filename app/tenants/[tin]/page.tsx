@@ -37,6 +37,7 @@ import { ApexTenantAccessControl } from "@/Components/apex/tenant/ApexTenantAcce
 import { ApexTenantModulesEditor } from "@/Components/apex/tenant/ApexTenantModulesEditor";
 import { ApexTenantStaffTable } from "@/Components/apex/tenant/ApexTenantStaffTable";
 import { ApexTenantPaymentsTable } from "@/Components/apex/tenant/ApexTenantPaymentsTable";
+import { ApexPortfolioOwnerPanel } from "@/Components/apex/tenant/ApexPortfolioOwnerPanel";
 
 export default function TenantDetailPage() {
   const params = useParams();
@@ -194,6 +195,8 @@ export default function TenantDetailPage() {
           onChanged={() => reload()}
         />
       </div>
+
+      <ApexPortfolioOwnerPanel tinNumber={tin} hotelDisplayName={tenant.hotelDisplayName} />
     </div>
   );
 }

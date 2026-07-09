@@ -206,6 +206,74 @@ export type FeedbackDirectoryRow = {
   lastMessage?: { body: string; senderSide: string; createdAt: string } | null;
 };
 
+export type SignupPricingPreview = {
+  setupFeeETB: number;
+  quarterlyFeeETB: number;
+  source: string;
+};
+
+export type TenantOnboardingResult = {
+  tinNumber: string;
+  hotelDisplayName: string;
+  ownerUserName: string;
+  ownerRole: string;
+  setupFeeETB: number;
+  setupFeeApproved: boolean;
+  userId: number;
+};
+
+export type TenantWithoutOwnerRow = {
+  tinNumber: string;
+  hotelDisplayName: string;
+  businessType: string | null;
+  hasStaffUsers: boolean;
+};
+
+export type OwnerAccountRow = {
+  id: number;
+  userName: string;
+  displayName: string | null;
+  phone: string | null;
+  email: string | null;
+  isActive: boolean;
+  propertyCount: number;
+  createdAt: string;
+};
+
+export type ApexCreateTenantInput = {
+  hotelName: string;
+  userName: string;
+  password: string;
+  businessType: string;
+  modules: string[];
+  logoUrl?: string | null;
+  tinNumber?: string | null;
+  paymentChannel?: string | null;
+  paymentTransactionRef?: string | null;
+  confirmPaymentReceived?: boolean;
+  isIllustrationTenant?: boolean;
+  billingNotes?: string | null;
+};
+
+export type ApexCreateTenantOwnerInput = {
+  tinNumber: string;
+  userName: string;
+  password: string;
+  logoUrl?: string | null;
+  paymentChannel?: string | null;
+  paymentTransactionRef?: string | null;
+  confirmPaymentReceived?: boolean;
+};
+
+export type ApexCreateOwnerAccountInput = {
+  userName: string;
+  password: string;
+  displayName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  linkTinNumber?: string | null;
+};
+
 const listInflight = new Map<string, Promise<unknown>>();
 
 function dedupeApexRead<T>(key: string, run: () => Promise<T>): Promise<T> {
@@ -788,6 +856,191 @@ export async function rejectModuleChangeRequest(requestId: number, reviewNote?: 
     { id: requestId, note: reviewNote || null },
   );
   afterModuleMutation();
+}
+
+function afterOnboardingMutation() {
+  invalidateApexCaches();
+}
+
+export async function fetchSignupPricingPreview(
+  businessType: string,
+  modules: string[],
+): Promise<SignupPricingPreview> {
+  const data = await apexGraphql<{ apexSignupPricingPreview: SignupPricingPreview }>(
+    `query($bt: String!, $modules: JSON!) {
+      apexSignupPricingPreview(businessType: $bt, modules: $modules) {
+        setupFeeETB quarterlyFeeETB source
+      }
+    }`,
+    { bt: businessType, modules },
+  );
+  return data.apexSignupPricingPreview;
+}
+
+export async function fetchTenantsWithoutOwner(): Promise<TenantWithoutOwnerRow[]> {
+  const data = await apexGraphql<{ apexTenantsWithoutOwner: TenantWithoutOwnerRow[] }>(`
+    query {
+      apexTenantsWithoutOwner {
+        tinNumber hotelDisplayName businessType hasStaffUsers
+      }
+    }
+  `);
+  return data.apexTenantsWithoutOwner;
+}
+
+export async function fetchOwnerAccounts(search?: string): Promise<OwnerAccountRow[]> {
+  const data = await apexGraphql<{ apexOwnerAccounts: OwnerAccountRow[] }>(
+    `query($q: String) {
+      apexOwnerAccounts(search: $q) {
+        id userName displayName phone email isActive propertyCount createdAt
+      }
+    }`,
+    { q: search || null },
+  );
+  return data.apexOwnerAccounts;
+}
+
+export async function apexCreateTenant(
+  input: ApexCreateTenantInput,
+): Promise<TenantOnboardingResult> {
+  const data = await apexGraphql<{ apexCreateTenant: TenantOnboardingResult }>(
+    `mutation(
+      $hotelName: String!
+      $userName: String!
+      $password: String!
+      $businessType: String!
+      $modules: JSON!
+      $logoUrl: String
+      $tinNumber: String
+      $paymentChannel: String
+      $paymentTransactionRef: String
+      $confirmPaymentReceived: Boolean
+      $isIllustrationTenant: Boolean
+      $billingNotes: String
+    ) {
+      apexCreateTenant(
+        hotelName: $hotelName
+        userName: $userName
+        password: $password
+        businessType: $businessType
+        modules: $modules
+        logoUrl: $logoUrl
+        tinNumber: $tinNumber
+        paymentChannel: $paymentChannel
+        paymentTransactionRef: $paymentTransactionRef
+        confirmPaymentReceived: $confirmPaymentReceived
+        isIllustrationTenant: $isIllustrationTenant
+        billingNotes: $billingNotes
+      ) {
+        tinNumber hotelDisplayName ownerUserName ownerRole setupFeeETB setupFeeApproved userId
+      }
+    }`,
+    {
+      hotelName: input.hotelName,
+      userName: input.userName,
+      password: input.password,
+      businessType: input.businessType,
+      modules: input.modules,
+      logoUrl: input.logoUrl ?? null,
+      tinNumber: input.tinNumber?.trim() || null,
+      paymentChannel: input.paymentChannel ?? null,
+      paymentTransactionRef: input.paymentTransactionRef ?? null,
+      confirmPaymentReceived: input.confirmPaymentReceived ?? false,
+      isIllustrationTenant: input.isIllustrationTenant ?? false,
+      billingNotes: input.billingNotes ?? null,
+    },
+  );
+  afterOnboardingMutation();
+  return data.apexCreateTenant;
+}
+
+export async function apexCreateTenantOwner(
+  input: ApexCreateTenantOwnerInput,
+): Promise<TenantOnboardingResult> {
+  const data = await apexGraphql<{ apexCreateTenantOwner: TenantOnboardingResult }>(
+    `mutation(
+      $tinNumber: String!
+      $userName: String!
+      $password: String!
+      $logoUrl: String
+      $paymentChannel: String
+      $paymentTransactionRef: String
+      $confirmPaymentReceived: Boolean
+    ) {
+      apexCreateTenantOwner(
+        tinNumber: $tinNumber
+        userName: $userName
+        password: $password
+        logoUrl: $logoUrl
+        paymentChannel: $paymentChannel
+        paymentTransactionRef: $paymentTransactionRef
+        confirmPaymentReceived: $confirmPaymentReceived
+      ) {
+        tinNumber hotelDisplayName ownerUserName ownerRole setupFeeETB setupFeeApproved userId
+      }
+    }`,
+    {
+      tinNumber: input.tinNumber,
+      userName: input.userName,
+      password: input.password,
+      logoUrl: input.logoUrl ?? null,
+      paymentChannel: input.paymentChannel ?? null,
+      paymentTransactionRef: input.paymentTransactionRef ?? null,
+      confirmPaymentReceived: input.confirmPaymentReceived ?? false,
+    },
+  );
+  afterOnboardingMutation();
+  return data.apexCreateTenantOwner;
+}
+
+export async function apexCreateOwnerAccount(
+  input: ApexCreateOwnerAccountInput,
+): Promise<OwnerAccountRow> {
+  const data = await apexGraphql<{ apexCreateOwnerAccount: OwnerAccountRow }>(
+    `mutation(
+      $userName: String!
+      $password: String!
+      $displayName: String
+      $phone: String
+      $email: String
+      $linkTinNumber: String
+    ) {
+      apexCreateOwnerAccount(
+        userName: $userName
+        password: $password
+        displayName: $displayName
+        phone: $phone
+        email: $email
+        linkTinNumber: $linkTinNumber
+      ) {
+        id userName displayName phone email isActive propertyCount createdAt
+      }
+    }`,
+    {
+      userName: input.userName,
+      password: input.password,
+      displayName: input.displayName ?? null,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
+      linkTinNumber: input.linkTinNumber?.trim() || null,
+    },
+  );
+  afterOnboardingMutation();
+  return data.apexCreateOwnerAccount;
+}
+
+export async function apexLinkOwnerProperty(
+  ownerAccountId: number,
+  tinNumber: string,
+  label?: string | null,
+) {
+  await apexGraphql(
+    `mutation($id: Int!, $tin: String!, $label: String) {
+      apexLinkOwnerProperty(ownerAccountId: $id, tinNumber: $tin, label: $label)
+    }`,
+    { id: ownerAccountId, tin: tinNumber, label: label ?? null },
+  );
+  afterOnboardingMutation();
 }
 
 export async function closeFeedbackThread(threadId: number, reason?: string) {

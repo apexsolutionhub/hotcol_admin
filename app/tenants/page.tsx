@@ -19,6 +19,7 @@ import {
   SubscriptionStatusBadge,
 } from "@/Components/apex/StatusBadge";
 import { Badge } from "@/Components/ui/badge";
+import { ApexCreateTenantTrigger } from "@/Components/apex/onboarding/ApexCreateTenantTrigger";
 import {
   Table,
   TableBody,
@@ -84,7 +85,7 @@ function TenantsContent() {
         description={
           filterSetupPending
             ? "Properties waiting for setup fee approval"
-            : "Search by business name, TIN, or owner username"
+            : "Search by business name, TIN, or Admin/Manager username"
         }
         breadcrumbs={
           filterSetupPending
@@ -93,6 +94,13 @@ function TenantsContent() {
                 { label: "Setup pending" },
               ]
             : undefined
+        }
+        actions={
+          !filterSetupPending ? (
+            <ApexCreateTenantTrigger size="sm" variant="apex">
+              Create tenant
+            </ApexCreateTenantTrigger>
+          ) : undefined
         }
       />
 
@@ -142,7 +150,7 @@ function TenantsContent() {
                   <TableHead>TIN</TableHead>
                   <TableHead>Account</TableHead>
                   <TableHead>Subscription</TableHead>
-                  <TableHead>Owner</TableHead>
+                  <TableHead>Admin / Manager</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

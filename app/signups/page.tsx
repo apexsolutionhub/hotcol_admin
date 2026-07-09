@@ -30,6 +30,7 @@ import { useLoadCoordinator } from "@/hooks/useLoadCoordinator";
 import { useApexDashboard } from "@/lib/apex/dashboard-context";
 import { mapApexApiError } from "@/lib/apex/api";
 import { Badge } from "@/Components/ui/badge";
+import { ApexCreateTenantTrigger } from "@/Components/apex/onboarding/ApexCreateTenantTrigger";
 
 const WHATSAPP = ["+251935000642", "+251930272975"];
 
@@ -80,6 +81,11 @@ export default function SignupsPage() {
       <ApexPageHeader
         title="New signups"
         description="Properties awaiting setup fee approval — typical wait ~30 minutes"
+        actions={
+          <ApexCreateTenantTrigger size="sm" variant="apex">
+            Create tenant manually
+          </ApexCreateTenantTrigger>
+        }
       />
 
       <ApexInfoBanner icon={Phone}>
@@ -105,7 +111,7 @@ export default function SignupsPage() {
                 <TableRow className="hover:bg-transparent">
                   <TableHead>Business</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Owner</TableHead>
+                  <TableHead>Admin / Manager</TableHead>
                   <TableHead>Setup fee</TableHead>
                   <TableHead>Payment ref</TableHead>
                   <TableHead>Registered</TableHead>

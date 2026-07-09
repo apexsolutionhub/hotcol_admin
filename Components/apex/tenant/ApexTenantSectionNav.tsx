@@ -15,6 +15,7 @@ const DEFAULT_SECTIONS: TenantSection[] = [
   { id: "operations", label: "Operations" },
   { id: "staff", label: "Staff" },
   { id: "payments-history", label: "History" },
+  { id: "portfolio-owner", label: "Portfolio owner" },
 ];
 
 export function ApexTenantSectionNav({

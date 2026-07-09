@@ -19,7 +19,6 @@ import {
   AlertTriangle,
   Calendar1,
   Mail,
-  Upload,
   User,
   User2,
 } from "lucide-react";
@@ -34,7 +33,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
-import { CldUploadWidget } from "next-cloudinary";
+import { CloudinaryImageUploadButton } from "@/Components/cloudinary/CloudinaryImageUploadButton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -115,12 +114,6 @@ type customProps = FormConnectedProps | AlertDialogProps;
 
 const RenderInput = ({ field, props }: { field: any; props: customProps }) => {
   const [open, setOpen] = React.useState(false);
-
-  const isVideoUrl = (url: string) => {
-    if (!url) return false;
-    const videoExtensions = [".mp4", ".webm", ".ogg", ".mov", ".avi"];
-    return videoExtensions.some((ext) => url.toLowerCase().endsWith(ext));
-  };
 
   switch (props.fieldType) {
     case formFieldTypes.INPUT:
@@ -336,70 +329,12 @@ const RenderInput = ({ field, props }: { field: any; props: customProps }) => {
     case formFieldTypes.IMAGE_UPLOADER:
       return (
         <FormControl>
-          <div className="flex flex-col items-center gap-4 w-full">
-            <CldUploadWidget
-              uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_PRESET_NAME}
-              onSuccess={props.handleCloudinary}
-              options={{
-                sources: ["local", "url", "camera"],
-                multiple: false,
-                maxFiles: 1,
-                clientAllowedFormats: [
-                  "png",
-                  "jpeg",
-                  "webp",
-                  "jfif",
-                  "mp4",
-                  "webm",
-                  "ogg",
-                  "mov",
-                  "avi",
-                ],
-              }}
-            >
-              {({ open }) => (
-                <Button
-                  type="button"
-                  onClick={() => open()}
-                  variant="outline"
-                  className={clsx(
-                    "flex items-center gap-2 cursor-pointer",
-                    props.inputClassName
-                  )}
-                >
-                  <Upload className="w-4 h-4" />
-                  {props.previewUrl ? "Change File" : "Choose File"}
-                </Button>
-              )}
-            </CldUploadWidget>
-            {props.previewUrl && (
-              <div className="relative flex flex-col items-center">
-                <div className="border rounded-lg p-2 bg-gray-50 w-fit">
-                  {props.fileType === "video" ||
-                  isVideoUrl(props.previewUrl) ? (
-                    <div className="relative w-40 h-40">
-                      <video
-                        src={props.previewUrl}
-                        controls
-                        className="w-full h-full object-cover rounded-md"
-                      >
-                        Your browser does not support the video tag.
-                      </video>
-                    </div>
-                  ) : (
-                    <Image
-                      src={props.previewUrl}
-                      alt="Uploaded Preview"
-                      width={100}
-                      height={100}
-                      loading="eager"
-                      className="rounded-md object-cover"
-                    />
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          <CloudinaryImageUploadButton
+            previewUrl={props.previewUrl}
+            fileType={props.fileType}
+            inputClassName={props.inputClassName}
+            onSuccess={(result) => props.handleCloudinary?.(result)}
+          />
         </FormControl>
       );
     case formFieldTypes.SKELETON:
