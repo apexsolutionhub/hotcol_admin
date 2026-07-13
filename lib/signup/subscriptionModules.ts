@@ -11,7 +11,7 @@ export const BUSINESS_TYPE_SIGNUP_DESCRIPTIONS: Record<BusinessType, string> = {
   "Cafe and Restaurant":
     "Orders, kitchen, bar, tables, cashier, and daily café operations.",
   Hotel:
-    "Lodging with inventory, credit, optional financial modules, and optional café & restaurant.",
+    "Lodging with optional room management, cleaning & maintenance, inventory, credit, and café.",
   Resort: "Resort operations — registration opening soon.",
   Pension: "Guest house and pension workflows — registration opening soon.",
 };
@@ -22,8 +22,6 @@ export function isBusinessTypeComingSoon(type: BusinessType): boolean {
 
 export const SIGNUP_COMING_SOON_MODULES = [
   "HR Module",
-  "Cleaning and Maintenance",
-  "Room Management",
 ] as const satisfies readonly ModuleOption[];
 
 export const MODULE_DESCRIPTIONS: Record<ModuleOption, string> = {
@@ -38,8 +36,10 @@ export const MODULE_DESCRIPTIONS: Record<ModuleOption, string> = {
   "Financial Management":
     "Cost control and finance roles; purchase, registration, and stock movement approvals.",
   "HR Module": "Staff HR workflows — coming soon.",
-  "Room Management": "Room operations — coming soon.",
-  "Cleaning and Maintenance": "Housekeeping and maintenance — coming soon.",
+  "Room Management":
+    "Rooms, reception check-in/out, guest stays, billing, laundry and in-room F&B.",
+  "Cleaning and Maintenance":
+    "Housekeeping and maintenance queues: dirty rooms, maintenance windows, and CM assignments.",
 };
 
 export type SignupPricing = {
@@ -69,6 +69,12 @@ export function isModuleDisabledAtSignup(
   if (isModuleComingSoon(mod)) return true;
   if (isModuleRequiredAtSignup(mod, businessType)) return true;
   if (mod === "Financial Management" && businessType === "Cafe and Restaurant") {
+    return true;
+  }
+  if (
+    businessType === "Cafe and Restaurant" &&
+    (mod === "Room Management" || mod === "Cleaning and Maintenance")
+  ) {
     return true;
   }
   return false;

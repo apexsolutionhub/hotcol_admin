@@ -4,8 +4,9 @@ export const APEX_SUBSCRIPTION_MODULES = [
   "Inventory",
   "Financial Management",
   "Credit Management",
-  "HR",
+  "HR Module",
   "Room Management",
+  "Cleaning and Maintenance",
 ] as const;
 
 export type ApexSubscriptionModule = (typeof APEX_SUBSCRIPTION_MODULES)[number];

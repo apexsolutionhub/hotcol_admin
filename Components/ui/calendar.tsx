@@ -23,11 +23,17 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
+  startMonth,
+  endMonth,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const defaultClassNames = getDefaultClassNames()
+  const year = new Date().getFullYear()
+  // Year dropdown / nav must span past & future — not only the current calendar year.
+  const resolvedStartMonth = startMonth ?? new Date(year - 25, 0)
+  const resolvedEndMonth = endMonth ?? new Date(year + 25, 11)
 
   return (
     <DayPicker
@@ -39,6 +45,8 @@ function Calendar({
         className
       )}
       captionLayout={captionLayout}
+      startMonth={resolvedStartMonth}
+      endMonth={resolvedEndMonth}
       formatters={{
         formatMonthDropdown: (date) =>
           date.toLocaleString("default", { month: "short" }),
