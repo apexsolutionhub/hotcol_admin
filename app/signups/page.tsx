@@ -1,30 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Phone, UserPlus } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   fetchSignupPipeline,
   approveSetup,
   rejectSetup,
   type SignupPipelineRow,
 } from "@/lib/apex/actions";
+import { ApexDataTable } from "@/Components/apex/layout/ApexDataTable";
 import { ApexPageHeader } from "@/Components/apex/layout/ApexPageHeader";
-import { ApexPanel, ApexTableWrap } from "@/Components/apex/layout/ApexPanel";
+import { ApexPanel } from "@/Components/apex/layout/ApexPanel";
 import { ApexEmptyState } from "@/Components/apex/layout/ApexEmptyState";
 import { ApexTableSkeleton } from "@/Components/apex/layout/ApexTableSkeleton";
 import { ApexErrorAlert } from "@/Components/apex/layout/ApexErrorAlert";
 import { ApexInfoBanner } from "@/Components/apex/layout/ApexInfoBanner";
 import { ApexApproveRejectActions } from "@/Components/apex/layout/ApexApproveRejectActions";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/Components/ui/table";
 import { businessTypeLabel } from "@/constants/businessTypes";
 import { useLoadCoordinator } from "@/hooks/useLoadCoordinator";
 import { useApexDashboard } from "@/lib/apex/dashboard-context";
@@ -76,6 +70,120 @@ export default function SignupsPage() {
     }
   };
 
+  const columns = useMemo<ColumnDef<SignupPipelineRow>[]>(
+    () => [
+      {
+        accessorKey: "hotelDisplayName",
+        header: "Business",
+        cell: ({ row }) => (
+          <div>
+            <Link
+              href={`/tenants/${encodeURIComponent(row.original.tinNumber)}`}
+              className="font-medium hover:text-primary"
+            >
+              {row.original.hotelDisplayName}
+            </Link>
+            <p className="font-mono text-xs text-muted-foreground">
+              {row.original.tinNumber}
+            </p>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "businessType",
+        header: "Type",
+        cell: ({ row }) => (
+          <span className="text-sm">
+            {businessTypeLabel(row.original.businessType)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "ownerUserName",
+        header: "Admin / Manager",
+        cell: ({ row }) => (
+          <span className="text-sm">{row.original.ownerUserName}</span>
+        ),
+      },
+      {
+        accessorKey: "setupFeeETB",
+        header: "Setup fee",
+        cell: ({ row }) => (
+          <span className="tabular-nums text-sm">
+            {row.original.setupFeeETB.toLocaleString()} ETB
+          </span>
+        ),
+      },
+      {
+        accessorKey: "paymentTransactionRef",
+        header: "Payment ref",
+        cell: ({ row }) => (
+          <div className="font-mono text-xs">
+            {row.original.paymentTransactionRef || "—"}
+            {row.original.paymentChannel ? (
+              <span className="block text-muted-foreground">
+                {row.original.paymentChannel}
+              </span>
+            ) : null}
+          </div>
+        ),
+      },
+      {
+        accessorKey: "registeredAt",
+        header: "Registered",
+        cell: ({ row }) => {
+          const waitMins = Math.floor(
+            (Date.now() - new Date(row.original.registeredAt).getTime()) / 60000,
+          );
+          return (
+            <div className="text-sm text-muted-foreground">
+              {new Date(row.original.registeredAt).toLocaleString()}
+              <Badge
+                variant={waitMins > 45 ? "warning" : "secondary"}
+                className="mt-1.5 block w-fit text-[10px]"
+              >
+                Waiting {waitMins} min
+              </Badge>
+            </div>
+          );
+        },
+      },
+      {
+        id: "action",
+        header: () => <div className="text-right">Action</div>,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const isBusy = busyTin === row.original.tinNumber;
+          return (
+            <div className="text-right">
+              <ApexApproveRejectActions
+                busy={isBusy}
+                approveLabel="Approve setup"
+                rejectTitle="Reject setup payment"
+                rejectDescription="The property owner will need to resubmit payment with a corrected reference."
+                onApprove={() =>
+                  runAction(
+                    row.original.tinNumber,
+                    () => approveSetup(row.original.tinNumber),
+                    "Setup approved — tenant can log in",
+                  )
+                }
+                onReject={(reason) =>
+                  runAction(
+                    row.original.tinNumber,
+                    () => rejectSetup(row.original.tinNumber, reason),
+                    "Setup rejected",
+                  )
+                }
+              />
+            </div>
+          );
+        },
+      },
+    ],
+    [busyTin],
+  );
+
   return (
     <div className="space-y-8">
       <ApexPageHeader
@@ -105,86 +213,12 @@ export default function SignupsPage() {
             description="New registrations waiting for setup approval will appear here."
           />
         ) : (
-          <ApexTableWrap>
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Business</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Admin / Manager</TableHead>
-                  <TableHead>Setup fee</TableHead>
-                  <TableHead>Payment ref</TableHead>
-                  <TableHead>Registered</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => {
-                  const waitMins = Math.floor(
-                    (Date.now() - new Date(row.registeredAt).getTime()) / 60000,
-                  );
-                  const isBusy = busyTin === row.tinNumber;
-                  return (
-                    <TableRow key={row.tinNumber}>
-                      <TableCell>
-                        <Link
-                          href={`/tenants/${encodeURIComponent(row.tinNumber)}`}
-                          className="font-medium hover:text-primary"
-                        >
-                          {row.hotelDisplayName}
-                        </Link>
-                        <p className="font-mono text-xs text-muted-foreground">{row.tinNumber}</p>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {businessTypeLabel(row.businessType)}
-                      </TableCell>
-                      <TableCell className="text-sm">{row.ownerUserName}</TableCell>
-                      <TableCell className="tabular-nums text-sm">
-                        {row.setupFeeETB.toLocaleString()} ETB
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {row.paymentTransactionRef || "—"}
-                        {row.paymentChannel ? (
-                          <span className="block text-muted-foreground">{row.paymentChannel}</span>
-                        ) : null}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(row.registeredAt).toLocaleString()}
-                        <Badge
-                          variant={waitMins > 45 ? "warning" : "secondary"}
-                          className="mt-1.5 block w-fit text-[10px]"
-                        >
-                          Waiting {waitMins} min
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <ApexApproveRejectActions
-                          busy={isBusy}
-                          approveLabel="Approve setup"
-                          rejectTitle="Reject setup payment"
-                          rejectDescription="The property owner will need to resubmit payment with a corrected reference."
-                          onApprove={() =>
-                            runAction(
-                              row.tinNumber,
-                              () => approveSetup(row.tinNumber),
-                              "Setup approved — tenant can log in",
-                            )
-                          }
-                          onReject={(reason) =>
-                            runAction(
-                              row.tinNumber,
-                              () => rejectSetup(row.tinNumber, reason),
-                              "Setup rejected",
-                            )
-                          }
-                        />
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </ApexTableWrap>
+          <ApexDataTable
+            data={rows}
+            columns={columns}
+            noun="signups"
+            pageSize={10}
+          />
         )}
       </ApexPanel>
     </div>

@@ -38,6 +38,7 @@ import type { DashboardSummary } from "@/lib/apex/actions";
 import { useApexRouteGuard } from "@/hooks/useApexRouteGuard";
 import { apexPageTitle } from "@/lib/apex/pageTitles";
 import { cn } from "@/lib/utils";
+import { ApexHeaderHealthPill } from "@/Components/apex/tenant/ApexTenantListSummary";
 
 function isNavActive(item: ApexNavItem, pathname: string, searchParams: URLSearchParams) {
   const [path, queryString] = item.href.split("?");
@@ -285,7 +286,10 @@ export function ApexShell({ children }: { children: React.ReactNode }) {
               </button>
               {loading && !summary ? (
                 <span className="hidden h-7 w-16 animate-pulse rounded-full bg-muted sm:inline" />
-              ) : queueTotal > 0 ? (
+              ) : summary ? (
+                <ApexHeaderHealthPill summary={summary} />
+              ) : null}
+              {queueTotal > 0 ? (
                 <span className="hidden rounded-full border border-primary/35 bg-primary/12 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-primary sm:inline">
                   {queueTotal} pending
                 </span>

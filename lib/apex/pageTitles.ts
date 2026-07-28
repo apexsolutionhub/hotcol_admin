@@ -24,6 +24,7 @@ export function apexPageTitle(pathname: string, searchParams: URLSearchParams): 
   if (pathname.startsWith("/tenants/")) return "Tenant detail";
   if (pathname.startsWith("/feedback/")) return "Property chat";
   if (pathname.startsWith("/payments/")) return "Payments";
+  if (pathname.startsWith("/reports")) return "Analytics & reports";
 
   return "Apex console";
 }

@@ -1,10 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { CreditCard, Landmark, PauseCircle, PlayCircle } from "lucide-react";
 import { Button } from "@/Components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Input } from "@/Components/ui/input";
-import { Separator } from "@/Components/ui/separator";
+import { Badge } from "@/Components/ui/badge";
+import {
+  ApexTenantMetricTile,
+  ApexTenantTabShell,
+} from "@/Components/apex/tenant/ApexTenantTabShell";
+import { SubscriptionStatusBadge } from "@/Components/apex/StatusBadge";
 import type { TenantDetail } from "@/lib/apex/actions";
 
 type Props = {
@@ -45,100 +50,125 @@ export function ApexTenantBillingActions({
   const pendingRenewal = tenant.recentPayments.find(
     (p) => p.paymentKind === renewalKind && p.status === "pending",
   );
+  const canApproveRenewal =
+    tenant.subscriptionStatus === "grace" ||
+    tenant.subscriptionStatus === "pending_approval" ||
+    Boolean(pendingRenewal);
 
   return (
-    <Card className="apex-panel-surface border-[oklch(0.55_0.04_85/0.2)]">
-      <CardHeader>
-        <CardTitle className="text-base text-[oklch(0.82_0.03_85)]">Billing actions</CardTitle>
-        <CardDescription>
-          Approve or reject payments, manage billing hold — subscription status:{" "}
-          <span className="font-medium text-foreground">{tenant.subscriptionStatus}</span>
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <div>
-            <p className="text-muted-foreground">Setup fee</p>
-            <p className="font-medium">
-              {tenant.setupFeeETB.toLocaleString()} ETB ·{" "}
-              {tenant.setupFeeApproved ? "Approved" : "Pending"}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">{renewalLabel} fee</p>
-            <p className="font-medium">
-              {renewalAmount.toLocaleString()} ETB
-              {isYearly ? (
-                <span className="block text-xs font-normal text-muted-foreground">
-                  4× quarterly ({tenant.quarterlyFeeETB.toLocaleString()} ETB)
-                </span>
-              ) : null}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">Paid until</p>
-            <p className="font-medium">
-              {tenant.subscriptionPaidUntil
+    <ApexTenantTabShell
+      title="Billing actions"
+      description="Approve or reject payments and manage billing hold for this property."
+      icon={CreditCard}
+      tone="gold"
+      actions={<SubscriptionStatusBadge status={tenant.subscriptionStatus} />}
+    >
+      <div className="space-y-6">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ApexTenantMetricTile
+            label="Setup fee"
+            value={`${tenant.setupFeeETB.toLocaleString()} ETB`}
+            sub={tenant.setupFeeApproved ? "Approved" : "Pending approval"}
+          />
+          <ApexTenantMetricTile
+            label={`${renewalLabel} fee`}
+            value={`${renewalAmount.toLocaleString()} ETB`}
+            sub={
+              isYearly
+                ? `4× quarterly (${tenant.quarterlyFeeETB.toLocaleString()} ETB)`
+                : "Per quarter"
+            }
+          />
+          <ApexTenantMetricTile
+            label="Paid until"
+            value={
+              tenant.subscriptionPaidUntil
                 ? new Date(tenant.subscriptionPaidUntil).toLocaleDateString()
-                : "—"}
-            </p>
-          </div>
-          <div>
-            <p className="text-muted-foreground">{isYearly ? "Years paid" : "Quarters paid"}</p>
-            <p className="font-medium">{tenant.paidQuartersCount}</p>
-          </div>
+                : "—"
+            }
+            sub={`${tenant.paidQuartersCount} ${isYearly ? "year" : "quarter"}${tenant.paidQuartersCount === 1 ? "" : "s"} paid`}
+          />
+          <ApexTenantMetricTile
+            label="Bank transfer"
+            value={<span className="font-mono text-xs">1000418779358</span>}
+            sub="CBE account"
+          />
         </div>
 
-        <Separator />
-
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Setup payment
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {!tenant.setupFeeApproved ? (
-              <Button
-                size="sm"
-                variant="success"
-                className="apex-row-action"
-                disabled={busy}
-                onClick={onApproveSetup}
-              >
-                Approve setup
-              </Button>
-            ) : (
-              <span className="text-xs text-muted-foreground">Setup already approved</span>
-            )}
-          </div>
-          {!tenant.setupFeeApproved ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                className="h-8 max-w-xs text-xs"
-                placeholder="Reject reason (required)"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-              />
-              <Button
-                size="sm"
-                variant="destructive"
-                className="apex-row-action"
-                disabled={busy || !rejectReason.trim()}
-                onClick={() => onRejectSetup(rejectReason)}
-              >
-                Reject setup
-              </Button>
+        <div className="grid gap-4 lg:grid-cols-3">
+          <section className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Setup payment</h3>
+              {tenant.setupFeeApproved ? (
+                <Badge variant="success">Approved</Badge>
+              ) : (
+                <Badge variant="warning">Pending</Badge>
+              )}
             </div>
-          ) : null}
-        </div>
+            {pendingSetup ? (
+              <p className="text-xs text-muted-foreground">
+                Ref:{" "}
+                <span className="font-mono text-foreground/90">
+                  {pendingSetup.transactionRef}
+                </span>
+              </p>
+            ) : null}
+            {!tenant.setupFeeApproved ? (
+              <div className="space-y-2">
+                <Button
+                  size="sm"
+                  variant="success"
+                  className="apex-row-action w-full sm:w-auto"
+                  disabled={busy}
+                  onClick={onApproveSetup}
+                >
+                  Approve setup
+                </Button>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Input
+                    className="h-8 text-xs"
+                    placeholder="Reject reason (required)"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="apex-row-action shrink-0"
+                    disabled={busy || !rejectReason.trim()}
+                    onClick={() => onRejectSetup(rejectReason)}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">Setup already approved.</p>
+            )}
+          </section>
 
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            {renewalLabel} payment
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(tenant.subscriptionStatus === "grace" ||
-              tenant.subscriptionStatus === "pending_approval" ||
-              pendingRenewal) && (
+          <section className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">{renewalLabel} payment</h3>
+              {canApproveRenewal ? (
+                <Badge variant="warning">Action needed</Badge>
+              ) : (
+                <Badge variant="outline">Quiet</Badge>
+              )}
+            </div>
+            {pendingRenewal ? (
+              <p className="text-xs text-muted-foreground">
+                Ref:{" "}
+                <span className="font-mono text-foreground/90">
+                  {pendingRenewal.transactionRef}
+                </span>
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Approve when status is grace or payment is pending.
+              </p>
+            )}
+            {canApproveRenewal ? (
               <Button
                 size="sm"
                 variant="success"
@@ -148,48 +178,52 @@ export function ApexTenantBillingActions({
               >
                 Approve {renewalKind}
               </Button>
-            )}
-          </div>
-        </div>
+            ) : null}
+          </section>
 
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Billing hold
-          </p>
-          <div className="flex flex-wrap gap-2">
+          <section className="rounded-xl border border-white/8 bg-white/3 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Billing hold</h3>
+              {tenant.billingHold ? (
+                <Badge variant="warning">On hold</Badge>
+              ) : (
+                <Badge variant="success">Open</Badge>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Holds pause billing enforcement without changing account status.
+            </p>
             {tenant.billingHold ? (
               <Button
                 size="sm"
                 variant="outline"
-                className="apex-row-action"
+                className="apex-row-action gap-1.5"
                 disabled={busy}
                 onClick={onReleaseHold}
               >
-                Release billing hold
+                <PlayCircle className="h-3.5 w-3.5" />
+                Release hold
               </Button>
             ) : (
               <Button
                 size="sm"
                 variant="outline"
-                className="apex-row-action"
+                className="apex-row-action gap-1.5"
                 disabled={busy}
                 onClick={onSetBillingHold}
               >
-                Place on billing hold
+                <PauseCircle className="h-3.5 w-3.5" />
+                Place on hold
               </Button>
             )}
-          </div>
+          </section>
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          CBE: <span className="font-mono">1000418779358</span>
-          {pendingSetup ? (
-            <span className="block">
-              Pending setup ref: {pendingSetup.transactionRef}
-            </span>
-          ) : null}
+        <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Landmark className="h-3.5 w-3.5 shrink-0" />
+          Verify CBE transfer references before approving.
         </p>
-      </CardContent>
-    </Card>
+      </div>
+    </ApexTenantTabShell>
   );
 }

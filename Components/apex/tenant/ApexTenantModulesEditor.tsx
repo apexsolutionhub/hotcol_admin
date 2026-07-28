@@ -1,14 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Layers3, RefreshCw } from "lucide-react";
 import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Checkbox } from "@/Components/ui/checkbox";
-import { Label } from "@/Components/ui/label";
 import { Switch } from "@/Components/ui/switch";
+import {
+  ApexTenantMetricTile,
+  ApexTenantTabShell,
+} from "@/Components/apex/tenant/ApexTenantTabShell";
 import { APEX_SUBSCRIPTION_MODULES } from "@/constants/subscriptionModules";
 import type { TenantDetail } from "@/lib/apex/actions";
+import { cn } from "@/lib/utils";
 
 function formatEtb(n: number) {
   return `${n.toLocaleString("en-US")} ETB`;
@@ -21,7 +25,12 @@ type Props = {
   onSyncStaff: () => void;
 };
 
-export function ApexTenantModulesEditor({ tenant, busy, onSaveModules, onSyncStaff }: Props) {
+export function ApexTenantModulesEditor({
+  tenant,
+  busy,
+  onSaveModules,
+  onSyncStaff,
+}: Props) {
   const initial = useMemo(
     () => new Set((tenant.modules as string[]) ?? []),
     [tenant.modules, tenant.tinNumber],
@@ -39,44 +48,77 @@ export function ApexTenantModulesEditor({ tenant, busy, onSaveModules, onSyncSta
   };
 
   return (
-    <Card className="apex-panel-surface border-[oklch(0.5_0.03_220/0.2)]">
-      <CardHeader>
-        <CardTitle className="text-base text-[oklch(0.8_0.025_220)]">Modules</CardTitle>
-        <CardDescription>
-          Catalog pricing for current modules: setup {formatEtb(tenant.suggestedSetupFeeETB)},
-          quarterly {formatEtb(tenant.suggestedQuarterlyFeeETB)}.
-          {tenant.feesManuallySet
-            ? " Custom fees are locked — enable recalc below to update amounts on save."
-            : " Saving modules will refresh fees from the catalog."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <ApexTenantTabShell
+      title="Modules"
+      description="Toggle product modules for this property. Catalog fees follow the selected mix."
+      icon={Layers3}
+      tone="teal"
+      actions={
+        <Badge variant="outline">
+          {selected.size} selected
+        </Badge>
+      }
+    >
+      <div className="space-y-6">
         <div className="grid gap-3 sm:grid-cols-2">
-          {APEX_SUBSCRIPTION_MODULES.map((mod) => (
-            <div key={mod} className="flex items-center gap-2">
-              <Checkbox
-                id={`mod-${mod}`}
-                checked={selected.has(mod)}
-                onCheckedChange={(v) => toggle(mod, Boolean(v))}
-              />
-              <Label htmlFor={`mod-${mod}`} className="cursor-pointer font-normal">
-                {mod}
-              </Label>
-            </div>
-          ))}
+          <ApexTenantMetricTile
+            label="Catalog setup"
+            value={formatEtb(tenant.suggestedSetupFeeETB)}
+            sub="For current module mix"
+          />
+          <ApexTenantMetricTile
+            label="Catalog quarterly"
+            value={formatEtb(tenant.suggestedQuarterlyFeeETB)}
+            sub={
+              tenant.feesManuallySet
+                ? "Custom fees locked until recalc"
+                : "Auto-sync on save"
+            }
+          />
+        </div>
+
+        <div className="grid gap-2.5 sm:grid-cols-2">
+          {APEX_SUBSCRIPTION_MODULES.map((mod) => {
+            const checked = selected.has(mod);
+            return (
+              <label
+                key={mod}
+                htmlFor={`mod-${mod}`}
+                className={cn(
+                  "flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition-colors",
+                  checked
+                    ? "border-[oklch(0.62_0.1_195/0.35)] bg-[oklch(0.45_0.05_195/0.12)]"
+                    : "border-white/8 bg-white/3 hover:border-white/14 hover:bg-white/5",
+                )}
+              >
+                <Checkbox
+                  id={`mod-${mod}`}
+                  checked={checked}
+                  onCheckedChange={(v) => toggle(mod, Boolean(v))}
+                />
+                <span className="text-sm font-medium">{mod}</span>
+              </label>
+            );
+          })}
         </div>
 
         {tenant.feesManuallySet ? (
-          <div className="flex items-center gap-3 rounded-lg border border-white/8 bg-white/[0.02] px-3 py-2">
+          <label
+            htmlFor="recalc-fees"
+            className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/3 px-4 py-3"
+          >
+            <div>
+              <p className="text-sm font-medium">Recalculate fees on save</p>
+              <p className="text-xs text-muted-foreground">
+                Update setup & quarterly from catalog when modules change
+              </p>
+            </div>
             <Switch
               id="recalc-fees"
               checked={recalcOnSave}
               onCheckedChange={setRecalcOnSave}
             />
-            <Label htmlFor="recalc-fees" className="cursor-pointer font-normal">
-              Recalculate setup &amp; quarterly from catalog when saving modules
-            </Label>
-          </div>
+          </label>
         ) : (
           <Badge variant="outline">Fees auto-sync with catalog on save</Badge>
         )}
@@ -95,14 +137,15 @@ export function ApexTenantModulesEditor({ tenant, busy, onSaveModules, onSyncSta
           <Button
             size="sm"
             variant="outline"
-            className="apex-row-action cursor-pointer"
+            className="apex-row-action cursor-pointer gap-1.5"
             disabled={busy}
             onClick={onSyncStaff}
           >
+            <RefreshCw className="h-3.5 w-3.5" />
             Sync staff modules from owner
           </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </ApexTenantTabShell>
   );
 }

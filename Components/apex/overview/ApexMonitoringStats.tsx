@@ -29,7 +29,7 @@ const MONITORING_STATS: {
   {
     key: "disabledUsers",
     title: "Disabled logins",
-    href: "/users?filter=disabled",
+    href: "/users",
     icon: UserX,
     accent: "apex-stat-accent-danger",
     topBar: "apex-stat-topbar-danger",

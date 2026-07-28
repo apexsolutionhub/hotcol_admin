@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { CreditCard, UserPlus } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   fetchPendingPayments,
   approveSetup,
@@ -13,22 +14,15 @@ import {
   invalidateApexCaches,
   type PaymentRow,
 } from "@/lib/apex/actions";
+import { ApexDataTable } from "@/Components/apex/layout/ApexDataTable";
 import { ApexPageHeader } from "@/Components/apex/layout/ApexPageHeader";
-import { ApexPanel, ApexTableWrap } from "@/Components/apex/layout/ApexPanel";
+import { ApexPanel } from "@/Components/apex/layout/ApexPanel";
 import { ApexEmptyState } from "@/Components/apex/layout/ApexEmptyState";
 import { ApexTableSkeleton } from "@/Components/apex/layout/ApexTableSkeleton";
 import { ApexApproveRejectActions } from "@/Components/apex/layout/ApexApproveRejectActions";
 import { Badge } from "@/Components/ui/badge";
 import { useLoadCoordinator } from "@/hooks/useLoadCoordinator";
 import { useApexDashboard } from "@/lib/apex/dashboard-context";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/Components/ui/table";
 
 type PaymentKind = "setup" | "quarterly" | "yearly";
 
@@ -75,7 +69,7 @@ export function ApexPaymentsQueue({ kind }: { kind: PaymentKind }) {
   const coordinator = useLoadCoordinator();
   const { refresh: refreshSummary, summary } = useApexDashboard();
 
-  const load = (force = false) => {
+  const load = useCallback((force = false) => {
     if (force) invalidateApexCaches(`apex:payments:${kind}`);
     void coordinator.run(async (isStale) => {
       setLoading(true);
@@ -88,11 +82,11 @@ export function ApexPaymentsQueue({ kind }: { kind: PaymentKind }) {
         if (!isStale()) setLoading(false);
       }
     });
-  };
+  }, [coordinator, kind]);
 
   useEffect(() => {
     load();
-  }, [kind]);
+  }, [load]);
 
   const act = async (id: number, fn: () => Promise<void>) => {
     setBusyId(id);
@@ -109,6 +103,86 @@ export function ApexPaymentsQueue({ kind }: { kind: PaymentKind }) {
   };
 
   const pendingCount = summary?.[meta.badgeKey];
+  const columns = useMemo<ColumnDef<PaymentRow>[]>(
+    () => [
+      {
+        accessorKey: "hotelDisplayName",
+        header: "Business",
+        cell: ({ row }) => (
+          <Link
+            href={`/tenants/${encodeURIComponent(row.original.tinNumber)}`}
+            className="font-medium transition-colors hover:text-[oklch(0.82_0.04_85)]"
+          >
+            {row.original.hotelDisplayName ?? "—"}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "tinNumber",
+        header: "TIN",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs">{row.original.tinNumber}</span>
+        ),
+      },
+      {
+        accessorKey: "amountETB",
+        header: "Amount",
+        cell: ({ row }) => (
+          <span className="font-medium tabular-nums">
+            {row.original.amountETB.toLocaleString()} ETB
+          </span>
+        ),
+      },
+      {
+        accessorKey: "paymentChannel",
+        header: "Channel",
+      },
+      {
+        accessorKey: "transactionRef",
+        header: "Reference",
+        cell: ({ row }) => (
+          <span className="block max-w-40 truncate font-mono text-xs">
+            {row.original.transactionRef}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "submittedAt",
+        header: "Submitted",
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
+            {new Date(row.original.submittedAt).toLocaleString()}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right">Actions</div>,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="text-right">
+            <ApexApproveRejectActions
+              busy={busyId === row.original.id}
+              rejectTitle={`Reject ${kind} payment`}
+              onApprove={() =>
+                act(row.original.id, () =>
+                  kind === "setup"
+                    ? approveSetup(row.original.tinNumber)
+                    : kind === "yearly"
+                      ? approveYearly(row.original.tinNumber)
+                      : approveQuarterly(row.original.tinNumber),
+                )
+              }
+              onReject={(reason) =>
+                act(row.original.id, () => rejectPayment(row.original.id, reason))
+              }
+            />
+          </div>
+        ),
+      },
+    ],
+    [busyId, kind],
+  );
 
   return (
     <div className="space-y-8">
@@ -132,64 +206,12 @@ export function ApexPaymentsQueue({ kind }: { kind: PaymentKind }) {
             description="New submissions from tenants will appear here."
           />
         ) : (
-          <ApexTableWrap>
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Business</TableHead>
-                  <TableHead>TIN</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Channel</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      <Link
-                        href={`/tenants/${encodeURIComponent(row.tinNumber)}`}
-                        className="font-medium transition-colors hover:text-[oklch(0.82_0.04_85)]"
-                      >
-                        {row.hotelDisplayName ?? "—"}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{row.tinNumber}</TableCell>
-                    <TableCell className="font-medium tabular-nums">
-                      {row.amountETB.toLocaleString()} ETB
-                    </TableCell>
-                    <TableCell>{row.paymentChannel}</TableCell>
-                    <TableCell className="max-w-[160px] truncate font-mono text-xs">
-                      {row.transactionRef}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {new Date(row.submittedAt).toLocaleString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <ApexApproveRejectActions
-                        busy={busyId === row.id}
-                        rejectTitle={`Reject ${kind} payment`}
-                        onApprove={() =>
-                          act(row.id, () =>
-                            kind === "setup"
-                              ? approveSetup(row.tinNumber)
-                              : kind === "yearly"
-                                ? approveYearly(row.tinNumber)
-                                : approveQuarterly(row.tinNumber),
-                          )
-                        }
-                        onReject={(reason) =>
-                          act(row.id, () => rejectPayment(row.id, reason))
-                        }
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ApexTableWrap>
+          <ApexDataTable
+            data={rows}
+            columns={columns}
+            noun="payments"
+            pageSize={10}
+          />
         )}
       </ApexPanel>
     </div>

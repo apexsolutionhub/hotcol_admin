@@ -1,19 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { toast } from "sonner";
+import { Receipt } from "lucide-react";
+import { ApexDataTable } from "@/Components/apex/layout/ApexDataTable";
 import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
-import { ApexPanel, ApexTableWrap } from "@/Components/apex/layout/ApexPanel";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/Components/ui/table";
+import { ApexTenantTabShell } from "@/Components/apex/tenant/ApexTenantTabShell";
+import { ApexEmptyState } from "@/Components/apex/layout/ApexEmptyState";
 import {
   approveQuarterly,
   approveYearly,
@@ -31,9 +27,29 @@ type Props = {
   onChanged: () => void;
 };
 
-export function ApexTenantPaymentsTable({ tinNumber, payments, busy, onChanged }: Props) {
+function statusBadge(status: string) {
+  const s = status.toLowerCase();
+  if (s === "approved" || s === "paid") return <Badge variant="success">Approved</Badge>;
+  if (s === "pending") return <Badge variant="warning">Pending</Badge>;
+  if (s === "rejected") return <Badge variant="destructive">Rejected</Badge>;
+  return (
+    <Badge variant="outline" className="capitalize">
+      {status}
+    </Badge>
+  );
+}
+
+export function ApexTenantPaymentsTable({
+  tinNumber,
+  payments,
+  busy,
+  onChanged,
+}: Props) {
   const [rejectReason, setRejectReason] = useState<Record<number, string>>({});
   const [actingId, setActingId] = useState<number | null>(null);
+  const pendingCount = payments.filter(
+    (p) => String(p.status).toLowerCase() === "pending",
+  ).length;
 
   const run = async (id: number, fn: () => Promise<void>) => {
     setActingId(id);
@@ -48,102 +64,149 @@ export function ApexTenantPaymentsTable({ tinNumber, payments, busy, onChanged }
     }
   };
 
+  const columns = useMemo<ColumnDef<Payment>[]>(
+    () => [
+      {
+        accessorKey: "paymentKind",
+        header: "Kind",
+        cell: ({ row }) => (
+          <span className="capitalize font-medium">
+            {row.original.paymentKind}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "amountETB",
+        header: "Amount",
+        cell: ({ row }) => (
+          <span className="tabular-nums">
+            {row.original.amountETB.toLocaleString()} ETB
+          </span>
+        ),
+      },
+      {
+        accessorKey: "transactionRef",
+        header: "Reference",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.original.transactionRef}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => statusBadge(row.original.status),
+      },
+      {
+        accessorKey: "submittedAt",
+        header: "Submitted",
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap text-sm text-muted-foreground">
+            {new Date(row.original.submittedAt).toLocaleString()}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: () => <div className="text-right">Actions</div>,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="text-right">
+            {row.original.status === "pending" ? (
+              <div className="flex flex-col items-end gap-2">
+                <Button
+                  size="sm"
+                  variant="success"
+                  className="apex-row-action"
+                  disabled={busy || actingId === row.original.id}
+                  onClick={() =>
+                    run(row.original.id, () =>
+                      row.original.paymentKind === "setup"
+                        ? approveSetup(tinNumber)
+                        : row.original.paymentKind === "yearly"
+                          ? approveYearly(tinNumber)
+                          : approveQuarterly(tinNumber),
+                    )
+                  }
+                >
+                  Approve
+                </Button>
+                <div className="flex gap-1">
+                  <Input
+                    className="h-7 w-28 text-xs"
+                    placeholder="Reject reason"
+                    value={rejectReason[row.original.id] ?? ""}
+                    onChange={(e) =>
+                      setRejectReason((prev) => ({
+                        ...prev,
+                        [row.original.id]: e.target.value,
+                      }))
+                    }
+                  />
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    className="apex-row-action"
+                    disabled={
+                      busy ||
+                      actingId === row.original.id ||
+                      !rejectReason[row.original.id]?.trim()
+                    }
+                    onClick={() =>
+                      run(row.original.id, () =>
+                        rejectPayment(
+                          row.original.id,
+                          rejectReason[row.original.id] ?? "",
+                        ),
+                      )
+                    }
+                  >
+                    Reject
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <span className="text-xs text-muted-foreground">—</span>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [actingId, busy, rejectReason, tinNumber],
+  );
+
   return (
-    <ApexPanel contentClassName="p-0">
-      <div className="border-b border-white/6 px-4 py-4 sm:px-6">
-        <h2 className="font-semibold">Payment history</h2>
-        <p className="text-sm text-muted-foreground">
-          Approve or reject pending submissions from this property
-        </p>
-      </div>
+    <ApexTenantTabShell
+      title="Payment history"
+      description="Approve or reject pending submissions from this property."
+      icon={Receipt}
+      tone="gold"
+      contentClassName="px-0 py-0"
+      actions={
+        pendingCount > 0 ? (
+          <Badge variant="warning">{pendingCount} pending</Badge>
+        ) : (
+          <Badge variant="outline">{payments.length} total</Badge>
+        )
+      }
+    >
       {payments.length === 0 ? (
-        <p className="p-6 text-sm text-muted-foreground">No payment submissions yet.</p>
+        <div className="px-5 py-5 sm:px-6">
+          <ApexEmptyState
+            icon={Receipt}
+            title="No payment submissions"
+            description="Setup and renewal proofs will list here once submitted."
+          />
+        </div>
       ) : (
-        <ApexTableWrap>
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead>Kind</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Reference</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {payments.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="capitalize">{p.paymentKind}</TableCell>
-                  <TableCell className="tabular-nums">
-                    {p.amountETB.toLocaleString()} ETB
-                  </TableCell>
-                  <TableCell className="font-mono text-xs">{p.transactionRef}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className="capitalize">
-                      {p.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                    {new Date(p.submittedAt).toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {p.status === "pending" ? (
-                      <div className="flex flex-col items-end gap-2">
-                        <Button
-                          size="sm"
-                          variant="success"
-                          className="apex-row-action"
-                          disabled={busy || actingId === p.id}
-                          onClick={() =>
-                            run(p.id, () =>
-                              p.paymentKind === "setup"
-                                ? approveSetup(tinNumber)
-                                : p.paymentKind === "yearly"
-                                  ? approveYearly(tinNumber)
-                                  : approveQuarterly(tinNumber),
-                            )
-                          }
-                        >
-                          Approve
-                        </Button>
-                        <div className="flex gap-1">
-                          <Input
-                            className="h-7 w-28 text-xs"
-                            placeholder="Reject reason"
-                            value={rejectReason[p.id] ?? ""}
-                            onChange={(e) =>
-                              setRejectReason((prev) => ({
-                                ...prev,
-                                [p.id]: e.target.value,
-                              }))
-                            }
-                          />
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="apex-row-action"
-                            disabled={
-                              busy || actingId === p.id || !rejectReason[p.id]?.trim()
-                            }
-                            onClick={() =>
-                              run(p.id, () => rejectPayment(p.id, rejectReason[p.id] ?? ""))
-                            }
-                          >
-                            Reject
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">—</span>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </ApexTableWrap>
+        <ApexDataTable
+          data={payments}
+          columns={columns}
+          noun="payments"
+          pageSize={10}
+        />
       )}
-    </ApexPanel>
+    </ApexTenantTabShell>
   );
 }

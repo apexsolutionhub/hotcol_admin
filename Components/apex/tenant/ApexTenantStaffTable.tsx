@@ -1,16 +1,13 @@
 "use client";
 
+import { useMemo } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Users } from "lucide-react";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
-import { ApexPanel, ApexTableWrap } from "@/Components/apex/layout/ApexPanel";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/Components/ui/table";
+import { ApexDataTable } from "@/Components/apex/layout/ApexDataTable";
+import { ApexTenantTabShell } from "@/Components/apex/tenant/ApexTenantTabShell";
+import { ApexEmptyState } from "@/Components/apex/layout/ApexEmptyState";
 import type { TenantDetail } from "@/lib/apex/actions";
 
 type Props = {
@@ -20,50 +17,97 @@ type Props = {
 };
 
 export function ApexTenantStaffTable({ users, busy, onToggleLogin }: Props) {
+  const disabledCount = users.filter((u) => u.loginDisabled).length;
+  const columns = useMemo<ColumnDef<TenantDetail["users"][number]>[]>(
+    () => [
+      {
+        accessorKey: "UserName",
+        header: "Username",
+        cell: ({ row }) => (
+          <span className="font-medium">{row.original.UserName}</span>
+        ),
+      },
+      {
+        accessorKey: "Role",
+        header: "Role",
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{row.original.Role}</span>
+        ),
+      },
+      {
+        accessorKey: "loginDisabled",
+        header: "Login",
+        cell: ({ row }) =>
+          row.original.loginDisabled ? (
+            <div className="space-y-0.5">
+              <Badge variant="destructive">Disabled</Badge>
+              {row.original.loginDisabledReason ? (
+                <p className="max-w-56 text-[11px] text-muted-foreground wrap-break-word">
+                  {row.original.loginDisabledReason}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <Badge variant="success">Active</Badge>
+          ),
+        sortingFn: (a, b) =>
+          Number(a.original.loginDisabled) - Number(b.original.loginDisabled),
+      },
+      {
+        id: "action",
+        header: () => <div className="text-right">Action</div>,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="text-right">
+            <Button
+              size="sm"
+              variant={row.original.loginDisabled ? "success" : "destructive"}
+              className="apex-row-action"
+              disabled={busy}
+              onClick={() =>
+                onToggleLogin(row.original.id, row.original.loginDisabled)
+              }
+            >
+              {row.original.loginDisabled ? "Enable" : "Disable"}
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [busy, onToggleLogin],
+  );
+
   return (
-    <ApexPanel contentClassName="p-0">
-      <div className="border-b border-border/60 px-4 py-3 sm:px-6">
-        <h2 className="font-semibold">Staff accounts</h2>
-        <p className="text-sm text-muted-foreground">Emergency per-user login disable</p>
-      </div>
-      <ApexTableWrap>
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead>Username</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Login</TableHead>
-              <TableHead className="text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {users.map((u) => (
-              <TableRow key={u.id}>
-                <TableCell className="font-medium">{u.UserName}</TableCell>
-                <TableCell>{u.Role}</TableCell>
-                <TableCell>
-                  {u.loginDisabled ? (
-                    <Badge variant="destructive">Disabled</Badge>
-                  ) : (
-                    <Badge variant="success">Active</Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant={u.loginDisabled ? "success" : "destructive"}
-                      className="apex-row-action"
-                      disabled={busy}
-                    onClick={() => onToggleLogin(u.id, u.loginDisabled)}
-                  >
-                    {u.loginDisabled ? "Enable" : "Disable"}
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </ApexTableWrap>
-    </ApexPanel>
+    <ApexTenantTabShell
+      title="Staff accounts"
+      description="Emergency per-user login disable — does not change roles or passwords."
+      icon={Users}
+      tone="emerald"
+      contentClassName="px-0 py-0"
+      actions={
+        disabledCount > 0 ? (
+          <Badge variant="destructive">{disabledCount} disabled</Badge>
+        ) : (
+          <Badge variant="success">All active</Badge>
+        )
+      }
+    >
+      {users.length === 0 ? (
+        <div className="px-5 py-5 sm:px-6">
+          <ApexEmptyState
+            icon={Users}
+            title="No staff accounts"
+            description="Staff will appear here once created for this property."
+          />
+        </div>
+      ) : (
+        <ApexDataTable
+          data={users}
+          columns={columns}
+          noun="staff accounts"
+          pageSize={10}
+        />
+      )}
+    </ApexTenantTabShell>
   );
 }

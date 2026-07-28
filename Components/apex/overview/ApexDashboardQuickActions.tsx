@@ -7,6 +7,7 @@ import {
   Tags,
   UserPlus,
   Users,
+  BarChart3,
 } from "lucide-react";
 import Link from "next/link";
 import type { DashboardSummary } from "@/lib/apex/actions";
@@ -52,6 +53,13 @@ const ACTIONS = [
     icon: UserPlus,
     countKey: "setupPendingTenants" as const,
     tone: "gold",
+  },
+  {
+    id: "reports",
+    href: "/reports",
+    label: "Analytics",
+    icon: BarChart3,
+    tone: "teal",
   },
   {
     id: "tenants",

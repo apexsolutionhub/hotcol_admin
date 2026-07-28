@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Building2, UserPlus } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   fetchTenantsWithoutOwner,
   type TenantWithoutOwnerRow,
@@ -10,7 +11,8 @@ import { ApexCreateTenantOwnerDialog } from "@/Components/apex/onboarding/ApexCr
 import { tenantPrimaryRole } from "@/lib/signup/subscriptionModules";
 import type { BusinessType } from "@/constants/signup";
 import { ApexPageHeader } from "@/Components/apex/layout/ApexPageHeader";
-import { ApexPanel, ApexTableWrap } from "@/Components/apex/layout/ApexPanel";
+import { ApexPanel } from "@/Components/apex/layout/ApexPanel";
+import { ApexDataTable } from "@/Components/apex/layout/ApexDataTable";
 import { ApexEmptyState } from "@/Components/apex/layout/ApexEmptyState";
 import { ApexTableSkeleton } from "@/Components/apex/layout/ApexTableSkeleton";
 import { ApexErrorAlert } from "@/Components/apex/layout/ApexErrorAlert";
@@ -18,14 +20,6 @@ import { businessTypeLabel } from "@/constants/businessTypes";
 import { ApexCreateTenantTrigger } from "@/Components/apex/onboarding/ApexCreateTenantTrigger";
 import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/Components/ui/table";
 import { useLoadCoordinator } from "@/hooks/useLoadCoordinator";
 import { mapApexApiError } from "@/lib/apex/api";
 
@@ -35,6 +29,62 @@ export default function TenantsWithoutOwnerPage() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<TenantWithoutOwnerRow | null>(null);
   const coordinator = useLoadCoordinator();
+
+  const columns = useMemo<ColumnDef<TenantWithoutOwnerRow>[]>(
+    () => [
+      {
+        accessorKey: "hotelDisplayName",
+        header: "Business",
+        cell: ({ row }) => (
+          <div>
+            <p className="font-medium">{row.original.hotelDisplayName}</p>
+            <p className="font-mono text-xs text-muted-foreground">
+              {row.original.tinNumber}
+            </p>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "businessType",
+        header: "Type",
+        cell: ({ row }) => (
+          <span className="text-sm">
+            {businessTypeLabel(row.original.businessType)}
+          </span>
+        ),
+      },
+      {
+        id: "staff",
+        header: "Staff",
+        cell: ({ row }) =>
+          row.original.hasStaffUsers ? (
+            <Badge variant="secondary">Has staff users</Badge>
+          ) : (
+            <span className="text-sm text-muted-foreground">No staff yet</span>
+          ),
+      },
+      {
+        id: "action",
+        header: () => <div className="text-right">Action</div>,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="text-right">
+            <Button
+              size="sm"
+              variant="apex"
+              onClick={() => setSelected(row.original)}
+            >
+              Create{" "}
+              {tenantPrimaryRole(
+                (row.original.businessType ?? "Cafe and Restaurant") as BusinessType,
+              )}
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
 
   const load = () => {
     void coordinator.run(async (isStale) => {
@@ -85,47 +135,12 @@ export default function TenantsWithoutOwnerPage() {
             description="When a tenant account exists without an Admin or Manager user, it will appear here."
           />
         ) : (
-          <ApexTableWrap>
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Business</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Staff</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow key={row.tinNumber}>
-                    <TableCell>
-                      <p className="font-medium">{row.hotelDisplayName}</p>
-                      <p className="font-mono text-xs text-muted-foreground">{row.tinNumber}</p>
-                    </TableCell>
-                    <TableCell className="text-sm">
-                      {businessTypeLabel(row.businessType)}
-                    </TableCell>
-                    <TableCell>
-                      {row.hasStaffUsers ? (
-                        <Badge variant="secondary">Has staff users</Badge>
-                      ) : (
-                        <span className="text-sm text-muted-foreground">No staff yet</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="apex"
-                        onClick={() => setSelected(row)}
-                      >
-                        Create {tenantPrimaryRole((row.businessType ?? "Cafe and Restaurant") as BusinessType)}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ApexTableWrap>
+          <ApexDataTable
+            data={rows}
+            columns={columns}
+            noun="properties"
+            pageSize={10}
+          />
         )}
       </ApexPanel>
 

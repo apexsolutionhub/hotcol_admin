@@ -1,30 +1,87 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import Link from "next/link";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Users } from "lucide-react";
-import { fetchTenantUsers, type TenantUserMonitoringRow } from "@/lib/apex/actions";
+import type { ColumnDef } from "@tanstack/react-table";
+import {
+  fetchTenantUsers,
+  fetchTenants,
+  type TenantListItem,
+  type TenantUserMonitoringRow,
+} from "@/lib/apex/actions";
 import { ApexPageLoader } from "@/Components/apex/ApexPageLoader";
+import { ApexDataTable } from "@/Components/apex/layout/ApexDataTable";
 import { ApexPageHeader } from "@/Components/apex/layout/ApexPageHeader";
-import { ApexPanel, ApexTableWrap } from "@/Components/apex/layout/ApexPanel";
+import { ApexPanel } from "@/Components/apex/layout/ApexPanel";
 import { ApexEmptyState } from "@/Components/apex/layout/ApexEmptyState";
 import { ApexTableSkeleton } from "@/Components/apex/layout/ApexTableSkeleton";
 import { ApexErrorAlert } from "@/Components/apex/layout/ApexErrorAlert";
 import { ApexSearchInput } from "@/Components/apex/layout/ApexSearchInput";
 import { ApexFilterTabs } from "@/Components/apex/layout/ApexFilterTabs";
-import { Badge } from "@/Components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/Components/ui/table";
-import { APEX_BUSINESS_TYPES, businessTypeLabel } from "@/constants/businessTypes";
+  ApexTenantUsersDetailTrigger,
+  tenantStandingLabel,
+  tenantUsersMetaLine,
+  type TenantUsersGroup,
+} from "@/Components/apex/tenant/ApexTenantUsersDetailTrigger";
+import { Badge } from "@/Components/ui/badge";
+import { APEX_BUSINESS_TYPES } from "@/constants/businessTypes";
 import { useLoadCoordinator } from "@/hooks/useLoadCoordinator";
 import { mapApexApiError } from "@/lib/apex/api";
+
+function groupUsersByTenant(
+  users: TenantUserMonitoringRow[],
+  tenantsByTin: Map<string, TenantListItem>,
+): TenantUsersGroup[] {
+  const byTin = new Map<string, TenantUserMonitoringRow[]>();
+  for (const user of users) {
+    const tin = String(user.tinNumber).trim();
+    if (!tin) continue;
+    const list = byTin.get(tin);
+    if (list) list.push(user);
+    else byTin.set(tin, [user]);
+  }
+
+  const groups: TenantUsersGroup[] = [];
+  for (const [tinNumber, groupUsers] of byTin) {
+    const tenant = tenantsByTin.get(tinNumber);
+    const roles = [
+      ...new Set(
+        groupUsers.map((u) => String(u.role || "").trim()).filter(Boolean),
+      ),
+    ].sort((a, b) => a.localeCompare(b));
+    const standingLabel = tenantStandingLabel({
+      accountStatus: tenant?.accountStatus,
+      subscriptionStatus: tenant?.subscriptionStatus,
+      isIllustrationTenant: tenant?.isIllustrationTenant,
+    });
+    groups.push({
+      tinNumber,
+      hotelDisplayName:
+        tenant?.hotelDisplayName ||
+        groupUsers[0]?.hotelDisplayName ||
+        tinNumber,
+      businessType: tenant?.businessType || groupUsers[0]?.businessType || "",
+      roleCount: roles.length,
+      roles,
+      userCount: groupUsers.length,
+      disabledCount: groupUsers.filter((u) => u.loginDisabled).length,
+      pays: standingLabel === "Pays",
+      standingLabel,
+      subscriptionStatus: tenant?.subscriptionStatus ?? null,
+      accountStatus: tenant?.accountStatus ?? null,
+      isIllustrationTenant: Boolean(tenant?.isIllustrationTenant),
+      users: groupUsers,
+    });
+  }
+
+  return groups.sort((a, b) =>
+    a.hotelDisplayName.localeCompare(b.hotelDisplayName, undefined, {
+      sensitivity: "base",
+    }),
+  );
+}
 
 export default function UsersPage() {
   return (
@@ -36,11 +93,10 @@ export default function UsersPage() {
 
 function UsersContent() {
   const searchParams = useSearchParams();
-  const filterDisabled = searchParams.get("filter") === "disabled";
   const typeFilter = searchParams.get("type") || "all";
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [rows, setRows] = useState<TenantUserMonitoringRow[]>([]);
+  const [groups, setGroups] = useState<TenantUsersGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const coordinator = useLoadCoordinator();
@@ -55,12 +111,22 @@ function UsersContent() {
       setLoading(true);
       setError(null);
       try {
-        const list = await fetchTenantUsers(
-          debouncedSearch || undefined,
-          typeFilter !== "all" ? typeFilter : undefined,
+        const [list, tenants] = await Promise.all([
+          fetchTenantUsers(
+            debouncedSearch || undefined,
+            typeFilter !== "all" ? typeFilter : undefined,
+            { limit: 500 },
+          ),
+          fetchTenants(
+            undefined,
+            typeFilter !== "all" ? typeFilter : undefined,
+          ),
+        ]);
+        const tenantsByTin = new Map(
+          tenants.map((t) => [String(t.tinNumber).trim(), t] as const),
         );
-        const filtered = filterDisabled ? list.filter((u) => u.loginDisabled) : list;
-        if (!isStale()) setRows(filtered);
+        const next = groupUsersByTenant(list, tenantsByTin);
+        if (!isStale()) setGroups(next);
       } catch (e) {
         const msg = mapApexApiError(e, "Failed to load users");
         if (!isStale() && msg) setError(msg);
@@ -68,58 +134,86 @@ function UsersContent() {
         if (!isStale()) setLoading(false);
       }
     });
-  }, [debouncedSearch, filterDisabled, typeFilter, coordinator]);
+  }, [debouncedSearch, typeFilter, coordinator]);
+
+  const columns = useMemo<ColumnDef<TenantUsersGroup>[]>(
+    () => [
+      {
+        accessorKey: "hotelDisplayName",
+        header: "Tenant",
+        cell: ({ row }) => (
+          <ApexTenantUsersDetailTrigger
+            group={row.original}
+            className="px-1 py-0.5 -mx-1"
+          >
+            <div className="flex max-w-xs flex-col gap-0.5">
+              <span className="font-medium wrap-break-word underline-offset-2 group-hover/detail:underline">
+                {row.original.hotelDisplayName}
+              </span>
+              <span className="text-[10px] leading-snug text-muted-foreground wrap-break-word">
+                {tenantUsersMetaLine(row.original)}
+              </span>
+            </div>
+          </ApexTenantUsersDetailTrigger>
+        ),
+      },
+      {
+        accessorKey: "userCount",
+        header: "Users",
+        cell: ({ row }) => (
+          <span className="tabular-nums text-sm text-muted-foreground">
+            {row.original.userCount}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "disabledCount",
+        header: "Login",
+        cell: ({ row }) =>
+          row.original.disabledCount > 0 ? (
+            <Badge variant="destructive">
+              {row.original.disabledCount} disabled
+            </Badge>
+          ) : (
+            <Badge variant="success">All active</Badge>
+          ),
+      },
+      {
+        accessorKey: "tinNumber",
+        header: "TIN",
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">
+            {row.original.tinNumber}
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="space-y-8">
       <ApexPageHeader
-        title={filterDisabled ? "Disabled logins" : "Tenant users"}
-        description={
-          filterDisabled
-            ? "Staff accounts with login disabled"
-            : "All staff accounts across HotCol properties"
-        }
-        breadcrumbs={
-          filterDisabled
-            ? [{ label: "Tenant users", href: "/users" }, { label: "Disabled" }]
-            : undefined
-        }
+        title="Tenant users"
+        description="Staff accounts grouped by property"
       />
 
-      <div className="flex flex-col gap-4">
-        <ApexFilterTabs
-          value={filterDisabled ? "disabled" : "all"}
-          tabs={[
-            {
-              value: "all",
-              label: "All users",
-              href: `/users${typeFilter !== "all" ? `?type=${typeFilter}` : ""}`,
-            },
-            {
-              value: "disabled",
-              label: "Disabled only",
-              href: `/users?filter=disabled${typeFilter !== "all" ? `&type=${typeFilter}` : ""}`,
-            },
-          ]}
-        />
-
-        <ApexFilterTabs
-          value={typeFilter}
-          wrap
-          tabs={[
-            {
-              value: "all",
-              label: "All types",
-              href: `/users${filterDisabled ? "?filter=disabled" : ""}`,
-            },
-            ...APEX_BUSINESS_TYPES.map((t) => ({
-              value: t.key,
-              label: t.label,
-              href: `/users?${filterDisabled ? "filter=disabled&" : ""}type=${encodeURIComponent(t.key)}`,
-            })),
-          ]}
-        />
-      </div>
+      <ApexFilterTabs
+        value={typeFilter}
+        wrap
+        tabs={[
+          {
+            value: "all",
+            label: "All types",
+            href: "/users",
+          },
+          ...APEX_BUSINESS_TYPES.map((t) => ({
+            value: t.key,
+            label: t.label,
+            href: `/users?type=${encodeURIComponent(t.key)}`,
+          })),
+        ]}
+      />
 
       <ApexSearchInput
         value={search}
@@ -131,63 +225,24 @@ function UsersContent() {
 
       <ApexPanel>
         {loading ? (
-          <ApexTableSkeleton cols={6} />
-        ) : rows.length === 0 ? (
+          <ApexTableSkeleton cols={4} />
+        ) : groups.length === 0 ? (
           <ApexEmptyState
             icon={Users}
             title="No users found"
             description={
-              debouncedSearch ? "Try a different search term." : "No accounts match this filter."
+              debouncedSearch
+                ? "Try a different search term."
+                : "No accounts match this filter."
             }
           />
         ) : (
-          <ApexTableWrap>
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Username</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Property</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>TIN</TableHead>
-                  <TableHead>Login</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell className="font-medium">{u.userName}</TableCell>
-                    <TableCell>{u.role}</TableCell>
-                    <TableCell>
-                      <Link
-                        href={`/tenants/${encodeURIComponent(u.tinNumber)}`}
-                        className="text-foreground hover:text-[oklch(0.82_0.04_85)]"
-                      >
-                        {u.hotelDisplayName}
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-normal">
-                        {businessTypeLabel(u.businessType)}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
-                      {u.tinNumber}
-                    </TableCell>
-                    <TableCell>
-                      {u.loginDisabled ? (
-                        <Badge variant="destructive" title={u.loginDisabledReason ?? undefined}>
-                          Disabled
-                        </Badge>
-                      ) : (
-                        <Badge variant="success">Active</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ApexTableWrap>
+          <ApexDataTable
+            data={groups}
+            columns={columns}
+            noun="properties"
+            pageSize={10}
+          />
         )}
       </ApexPanel>
     </div>

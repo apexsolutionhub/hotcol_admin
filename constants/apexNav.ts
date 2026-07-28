@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  BarChart3,
   Building2,
   CreditCard,
   FileText,
@@ -31,6 +32,13 @@ export type ApexNavItem = {
 
 export const APEX_MAIN_NAV: ApexNavItem[] = [
   { id: "overview", href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+  {
+    id: "reports",
+    href: "/reports",
+    label: "Analytics",
+    icon: BarChart3,
+    matchPrefix: true,
+  },
   {
     id: "tenants",
     href: "/tenants",

@@ -5,6 +5,7 @@ import {
   writeListCache,
 } from "./graphqlListCache";
 import { persistApexSession, type ApexMember } from "./auth";
+import { normalizeModuleList } from "./moduleChangeRequest";
 
 export type DashboardSummary = {
   pendingSetupPayments: number;
@@ -633,17 +634,33 @@ export async function startApexChatWithTenant(tinNumber: string, body: string) {
   return data.startApexChatWithTenant;
 }
 
-export async function fetchTenantUsers(search?: string, businessType?: string) {
-  const key = `apex:users:${(search || "").trim().toLowerCase()}:${businessType || "all"}`;
+export async function fetchTenantUsers(
+  search?: string,
+  businessType?: string,
+  options?: { loginDisabledOnly?: boolean; limit?: number },
+) {
+  const loginDisabledOnly = Boolean(options?.loginDisabledOnly);
+  const limit = options?.limit ?? 500;
+  const key = `apex:users:${(search || "").trim().toLowerCase()}:${businessType || "all"}:${loginDisabledOnly}:${limit}`;
   return dedupeApexRead(key, async () => {
     const data = await apexGraphql<{ apexTenantUsers: TenantUserMonitoringRow[] }>(
-      `query($search: String, $businessType: String) {
-        apexTenantUsers(search: $search, businessType: $businessType) {
+      `query($search: String, $businessType: String, $loginDisabledOnly: Boolean, $limit: Int) {
+        apexTenantUsers(
+          search: $search
+          businessType: $businessType
+          loginDisabledOnly: $loginDisabledOnly
+          limit: $limit
+        ) {
           id userName role tinNumber hotelDisplayName businessType
           loginDisabled loginDisabledReason createdAt
         }
       }`,
-      { search: search?.trim() || null, businessType: businessType || null },
+      {
+        search: search?.trim() || null,
+        businessType: businessType || null,
+        loginDisabledOnly: loginDisabledOnly || null,
+        limit,
+      },
     );
     return data.apexTenantUsers;
   });
@@ -676,7 +693,10 @@ export async function fetchModuleChangeRequests(status?: string) {
       }`,
       { status: status || null },
     );
-    return data.apexModuleChangeRequests;
+    return data.apexModuleChangeRequests.map((row) => ({
+      ...row,
+      requestedModules: normalizeModuleList(row.requestedModules),
+    }));
   });
 }
 
@@ -826,6 +846,16 @@ export async function setPricingRuleActive(id: number, isActive: boolean) {
       setPricingRuleActive(id: $id, isActive: $active)
     }`,
     { id, active: isActive },
+  );
+  afterPricingMutation();
+}
+
+export async function deletePricingRule(id: number) {
+  await apexGraphql(
+    `mutation($id: Int!) {
+      deletePricingRule(id: $id)
+    }`,
+    { id },
   );
   afterPricingMutation();
 }

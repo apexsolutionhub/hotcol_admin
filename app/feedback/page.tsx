@@ -4,28 +4,22 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { MessageCircle } from "lucide-react";
+import type { ColumnDef } from "@tanstack/react-table";
 import {
   fetchFeedbackDirectory,
   invalidateApexCaches,
   type FeedbackDirectoryRow,
 } from "@/lib/apex/actions";
 import { ApexPageLoader } from "@/Components/apex/ApexPageLoader";
+import { ApexDataTable } from "@/Components/apex/layout/ApexDataTable";
 import { ApexPageHeader } from "@/Components/apex/layout/ApexPageHeader";
-import { ApexPanel, ApexTableWrap } from "@/Components/apex/layout/ApexPanel";
+import { ApexPanel } from "@/Components/apex/layout/ApexPanel";
 import { ApexErrorAlert } from "@/Components/apex/layout/ApexErrorAlert";
 import { ApexSearchInput } from "@/Components/apex/layout/ApexSearchInput";
 import { ApexResultCount } from "@/Components/apex/layout/ApexFilterTabs";
 import { ApexEmptyState } from "@/Components/apex/layout/ApexEmptyState";
 import { ApexStartChatDialog } from "@/Components/apex/feedback/ApexStartChatDialog";
 import { ApexTableSkeleton } from "@/Components/apex/layout/ApexTableSkeleton";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/Components/ui/table";
 import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
 import { useLoadCoordinator } from "@/hooks/useLoadCoordinator";
@@ -85,6 +79,91 @@ function FeedbackList() {
     return list;
   }, [allRows, search, filterTin]);
 
+  const columns = useMemo<ColumnDef<FeedbackDirectoryRow>[]>(
+    () => [
+      {
+        accessorKey: "hotelDisplayName",
+        header: "Business",
+        cell: ({ row }) => (
+          <div>
+            <Link
+              href={`/tenants/${encodeURIComponent(row.original.tinNumber)}`}
+              className="font-medium transition-colors hover:text-[oklch(0.82_0.04_85)]"
+            >
+              {row.original.hotelDisplayName}
+            </Link>
+            <p className="font-mono text-xs text-muted-foreground">
+              {row.original.tinNumber}
+            </p>
+          </div>
+        ),
+      },
+      {
+        id: "chat",
+        header: "Chat",
+        cell: ({ row }) =>
+          row.original.threadId ? (
+            <Badge variant="outline" className="capitalize">
+              {row.original.chatStatus}
+            </Badge>
+          ) : (
+            <Badge variant="secondary">No chat yet</Badge>
+          ),
+      },
+      {
+        accessorKey: "unreadFromTenant",
+        header: "Unread",
+        cell: ({ row }) =>
+          row.original.unreadFromTenant > 0 ? (
+            <Badge variant="success">{row.original.unreadFromTenant}</Badge>
+          ) : (
+            <span className="text-muted-foreground">—</span>
+          ),
+      },
+      {
+        id: "lastMessage",
+        header: "Last message",
+        cell: ({ row }) => (
+          <span className="block max-w-xs truncate text-sm text-muted-foreground">
+            {row.original.lastMessage?.body ?? "—"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Updated",
+        cell: ({ row }) => (
+          <span className="whitespace-nowrap text-xs text-muted-foreground">
+            {row.original.updatedAt
+              ? new Date(row.original.updatedAt).toLocaleString()
+              : "—"}
+          </span>
+        ),
+      },
+      {
+        id: "open",
+        header: () => <div className="text-right">Open</div>,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <div className="text-right">
+            {row.original.threadId ? (
+              <Button asChild size="sm" variant="outline" className="apex-row-action">
+                <Link href={`/feedback/${row.original.threadId}`}>Open chat</Link>
+              </Button>
+            ) : (
+              <Button asChild size="sm" variant="apex" className="apex-row-action">
+                <Link href={`/feedback?tin=${encodeURIComponent(row.original.tinNumber)}`}>
+                  Start chat
+                </Link>
+              </Button>
+            )}
+          </div>
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <div className="space-y-8">
       <ApexPageHeader
@@ -131,72 +210,12 @@ function FeedbackList() {
             }
           />
         ) : (
-          <ApexTableWrap>
-            <Table>
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead>Business</TableHead>
-                  <TableHead>Chat</TableHead>
-                  <TableHead>Unread</TableHead>
-                  <TableHead>Last message</TableHead>
-                  <TableHead>Updated</TableHead>
-                  <TableHead className="text-right">Open</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((t) => (
-                  <TableRow key={t.tinNumber} className="group">
-                    <TableCell>
-                      <Link
-                        href={`/tenants/${encodeURIComponent(t.tinNumber)}`}
-                        className="font-medium transition-colors group-hover:text-[oklch(0.82_0.04_85)]"
-                      >
-                        {t.hotelDisplayName}
-                      </Link>
-                      <p className="font-mono text-xs text-muted-foreground">{t.tinNumber}</p>
-                    </TableCell>
-                    <TableCell>
-                      {t.threadId ? (
-                        <Badge variant="outline" className="capitalize">
-                          {t.chatStatus}
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">No chat yet</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {t.unreadFromTenant > 0 ? (
-                        <Badge variant="success">
-                          {t.unreadFromTenant}
-                        </Badge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-xs truncate text-sm text-muted-foreground">
-                      {t.lastMessage?.body ?? "—"}
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
-                      {t.updatedAt ? new Date(t.updatedAt).toLocaleString() : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {t.threadId ? (
-                        <Button asChild size="sm" variant="outline" className="apex-row-action">
-                          <Link href={`/feedback/${t.threadId}`}>Open chat</Link>
-                        </Button>
-                      ) : (
-                        <Button asChild size="sm" variant="apex" className="apex-row-action">
-                          <Link href={`/feedback?tin=${encodeURIComponent(t.tinNumber)}`}>
-                            Start chat
-                          </Link>
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </ApexTableWrap>
+          <ApexDataTable
+            data={rows}
+            columns={columns}
+            noun="properties"
+            pageSize={10}
+          />
         )}
       </ApexPanel>
     </div>
