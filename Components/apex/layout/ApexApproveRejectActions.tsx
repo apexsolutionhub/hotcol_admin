@@ -50,11 +50,11 @@ export function ApexApproveRejectActions({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="inline-flex flex-nowrap items-center justify-end gap-2 whitespace-nowrap">
       <Button
         size="sm"
         variant="success"
-        className="apex-row-action gap-1.5"
+        className="apex-row-action shrink-0 gap-1.5"
         disabled={busy}
         onClick={() => void onApprove()}
       >
@@ -71,7 +71,7 @@ export function ApexApproveRejectActions({
           <Button
             size="sm"
             variant="outline"
-            className="apex-row-action gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            className="apex-row-action shrink-0 gap-1.5 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
             disabled={busy}
           >
             <X className="h-3.5 w-3.5" />

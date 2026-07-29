@@ -38,6 +38,7 @@ type ApexDataTableProps<TData> = {
   pageSize?: number;
   noun?: string;
   className?: string;
+  tableClassName?: string;
   rowClassName?: string | ((row: TData) => string | undefined);
   searchPlaceholder?: string;
   showToolbar?: boolean;
@@ -84,6 +85,7 @@ export function ApexDataTable<TData>({
   pageSize = 10,
   noun = "rows",
   className,
+  tableClassName,
   rowClassName,
   searchPlaceholder = "Search…",
   showToolbar = false,
@@ -191,7 +193,7 @@ export function ApexDataTable<TData>({
       ) : null}
 
       <ApexTableWrap>
-        <Table>
+        <Table className={cn("min-w-full", tableClassName)}>
           <TableHeader className="bg-white/2">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="hover:bg-transparent">

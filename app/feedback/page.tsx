@@ -1,17 +1,14 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { MessageCircle } from "lucide-react";
-import type { ColumnDef } from "@tanstack/react-table";
 import {
   fetchFeedbackDirectory,
   invalidateApexCaches,
   type FeedbackDirectoryRow,
 } from "@/lib/apex/actions";
 import { ApexPageLoader } from "@/Components/apex/ApexPageLoader";
-import { ApexDataTable } from "@/Components/apex/layout/ApexDataTable";
 import { ApexPageHeader } from "@/Components/apex/layout/ApexPageHeader";
 import { ApexPanel } from "@/Components/apex/layout/ApexPanel";
 import { ApexErrorAlert } from "@/Components/apex/layout/ApexErrorAlert";
@@ -19,9 +16,9 @@ import { ApexSearchInput } from "@/Components/apex/layout/ApexSearchInput";
 import { ApexResultCount } from "@/Components/apex/layout/ApexFilterTabs";
 import { ApexEmptyState } from "@/Components/apex/layout/ApexEmptyState";
 import { ApexStartChatDialog } from "@/Components/apex/feedback/ApexStartChatDialog";
+import { ApexBroadcastChatDialog } from "@/Components/apex/feedback/ApexBroadcastChatDialog";
+import { ApexFeedbackDirectoryTable } from "@/Components/apex/feedback/ApexFeedbackDirectoryTable";
 import { ApexTableSkeleton } from "@/Components/apex/layout/ApexTableSkeleton";
-import { Badge } from "@/Components/ui/badge";
-import { Button } from "@/Components/ui/button";
 import { useLoadCoordinator } from "@/hooks/useLoadCoordinator";
 import { mapApexApiError } from "@/lib/apex/api";
 
@@ -79,142 +76,85 @@ function FeedbackList() {
     return list;
   }, [allRows, search, filterTin]);
 
-  const columns = useMemo<ColumnDef<FeedbackDirectoryRow>[]>(
-    () => [
-      {
-        accessorKey: "hotelDisplayName",
-        header: "Business",
-        cell: ({ row }) => (
-          <div>
-            <Link
-              href={`/tenants/${encodeURIComponent(row.original.tinNumber)}`}
-              className="font-medium transition-colors hover:text-[oklch(0.82_0.04_85)]"
-            >
-              {row.original.hotelDisplayName}
-            </Link>
-            <p className="font-mono text-xs text-muted-foreground">
-              {row.original.tinNumber}
-            </p>
-          </div>
-        ),
-      },
-      {
-        id: "chat",
-        header: "Chat",
-        cell: ({ row }) =>
-          row.original.threadId ? (
-            <Badge variant="outline" className="capitalize">
-              {row.original.chatStatus}
-            </Badge>
-          ) : (
-            <Badge variant="secondary">No chat yet</Badge>
-          ),
-      },
-      {
-        accessorKey: "unreadFromTenant",
-        header: "Unread",
-        cell: ({ row }) =>
-          row.original.unreadFromTenant > 0 ? (
-            <Badge variant="success">{row.original.unreadFromTenant}</Badge>
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          ),
-      },
-      {
-        id: "lastMessage",
-        header: "Last message",
-        cell: ({ row }) => (
-          <span className="block max-w-xs truncate text-sm text-muted-foreground">
-            {row.original.lastMessage?.body ?? "—"}
-          </span>
-        ),
-      },
-      {
-        accessorKey: "updatedAt",
-        header: "Updated",
-        cell: ({ row }) => (
-          <span className="whitespace-nowrap text-xs text-muted-foreground">
-            {row.original.updatedAt
-              ? new Date(row.original.updatedAt).toLocaleString()
-              : "—"}
-          </span>
-        ),
-      },
-      {
-        id: "open",
-        header: () => <div className="text-right">Open</div>,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <div className="text-right">
-            {row.original.threadId ? (
-              <Button asChild size="sm" variant="outline" className="apex-row-action">
-                <Link href={`/feedback/${row.original.threadId}`}>Open chat</Link>
-              </Button>
-            ) : (
-              <Button asChild size="sm" variant="apex" className="apex-row-action">
-                <Link href={`/feedback?tin=${encodeURIComponent(row.original.tinNumber)}`}>
-                  Start chat
-                </Link>
-              </Button>
-            )}
-          </div>
-        ),
-      },
-    ],
-    [],
-  );
-
   return (
     <div className="space-y-8">
       <ApexPageHeader
         title="Property chat"
         description={
           filterTin
-            ? `All properties — filtered to TIN ${filterTin}`
-            : "Every HotCol property — open an existing thread or start a new chat"
+            ? `Filtered to TIN ${filterTin}`
+            : "Message active properties — reply to unread threads or start a new chat"
         }
         breadcrumbs={
           filterTin
             ? [{ label: "Property chat", href: "/feedback" }, { label: filterTin }]
             : undefined
         }
-        actions={<ApexStartChatDialog defaultTin={filterTin ?? undefined} />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <ApexBroadcastChatDialog onDone={() => load(true)} />
+            <ApexStartChatDialog
+              defaultTin={filterTin ?? undefined}
+              onDone={() => load(true)}
+            />
+          </div>
+        }
       />
 
-      <ApexSearchInput
-        value={search}
-        onChange={setSearch}
-        placeholder="Filter by business name or TIN…"
-      />
-
-      <ApexResultCount shown={rows.length} total={allRows.length} noun="properties" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <ApexSearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Filter by business name or TIN…"
+          className="sm:max-w-md"
+        />
+        <ApexResultCount
+          shown={rows.length}
+          total={allRows.length}
+          noun="properties"
+        />
+      </div>
 
       {error ? <ApexErrorAlert message={error} /> : null}
 
       <ApexPanel>
         {loading ? (
-          <ApexTableSkeleton cols={6} />
+          <div className="p-4 sm:p-6">
+            <ApexTableSkeleton cols={5} />
+          </div>
+        ) : allRows.length === 0 ? (
+          <div className="p-6">
+            <ApexEmptyState
+              icon={MessageCircle}
+              title="No active properties"
+              description="Active HotCol properties will appear here for chat."
+              action={<ApexStartChatDialog onDone={() => load(true)} />}
+            />
+          </div>
         ) : rows.length === 0 ? (
-          <ApexEmptyState
-            icon={MessageCircle}
-            title="No properties match"
-            description={
-              search.trim()
-                ? "Try a different search term."
-                : "Every HotCol property will appear here for chat."
-            }
-            action={
-              filterTin ? (
-                <ApexStartChatDialog defaultTin={filterTin} />
-              ) : undefined
-            }
-          />
+          <div className="p-6">
+            <ApexEmptyState
+              icon={MessageCircle}
+              title="No properties match"
+              description={
+                search.trim() || filterTin
+                  ? "Try a different search term, or clear the TIN filter."
+                  : "Every active property will appear here for chat."
+              }
+              action={
+                filterTin ? (
+                  <ApexStartChatDialog
+                    defaultTin={filterTin}
+                    onDone={() => load(true)}
+                  />
+                ) : undefined
+              }
+            />
+          </div>
         ) : (
-          <ApexDataTable
-            data={rows}
-            columns={columns}
-            noun="properties"
-            pageSize={10}
+          <ApexFeedbackDirectoryTable
+            rows={rows}
+            onStarted={() => load(true)}
           />
         )}
       </ApexPanel>

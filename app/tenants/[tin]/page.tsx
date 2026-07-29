@@ -17,6 +17,8 @@ import {
   unsuspendTenant,
   banTenant,
   unbanTenant,
+  deleteTenant,
+  restoreDeletedTenant,
   setUserLoginDisabled,
   applySuggestedTenantFees,
   updateTenantBilling,
@@ -95,12 +97,14 @@ export default function TenantDetailPage() {
           { label: tenant.hotelDisplayName },
         ]}
         actions={
-          <Button asChild size="sm" variant="apex">
-            <Link href={`/feedback?tin=${encodeURIComponent(tin)}`}>
-              <MessageCircle className="mr-2 h-4 w-4" />
-              Open chat
-            </Link>
-          </Button>
+          tenant.accountStatus === "active" ? (
+            <Button asChild size="sm" variant="apex">
+              <Link href={`/feedback?tin=${encodeURIComponent(tin)}`}>
+                <MessageCircle className="mr-2 h-4 w-4" />
+                Open chat
+              </Link>
+            </Button>
+          ) : undefined
         }
       />
 
@@ -153,6 +157,8 @@ export default function TenantDetailPage() {
             onBan={() => run(() => banTenant(tin, reason))}
             onUnsuspend={() => run(() => unsuspendTenant(tin))}
             onUnban={() => run(() => unbanTenant(tin))}
+            onDelete={() => run(() => deleteTenant(tin, reason))}
+            onRestore={() => run(() => restoreDeletedTenant(tin, reason || undefined))}
           />
         ) : null}
 

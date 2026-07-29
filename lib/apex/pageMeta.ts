@@ -14,10 +14,13 @@ export function getApexPageMeta(
     };
   }
   if (pathname === "/tenants") {
-    if (searchParams.get("filter") === "setup_pending") {
+    if (
+      searchParams.get("filter") === "inactive" ||
+      searchParams.get("filter") === "setup_pending"
+    ) {
       return {
-        title: "Setup pending",
-        description: "Tenants waiting for setup fee approval",
+        title: "Inactive Tenants",
+        description: "Suspended, banned, and deleted properties",
       };
     }
     return {

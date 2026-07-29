@@ -17,6 +17,7 @@ export type ApexNavBadgeKey =
   | "pendingQuarterlyPayments"
   | "pendingYearlyPayments"
   | "setupPendingTenants"
+  | "inactiveTenants"
   | "unreadFeedback"
   | "pendingModuleRequests"
   | "disabledUsers";
@@ -110,11 +111,11 @@ export const APEX_ACTION_NAV: ApexNavItem[] = [
     badgeKey: "setupPendingTenants",
   },
   {
-    id: "setup-pending",
-    href: "/tenants?filter=setup_pending",
-    label: "Setup pending",
+    id: "inactive-tenants",
+    href: "/tenants?filter=inactive",
+    label: "Inactive Tenants",
     icon: Users,
-    badgeKey: "setupPendingTenants",
+    badgeKey: "inactiveTenants",
   },
   {
     id: "feedback",

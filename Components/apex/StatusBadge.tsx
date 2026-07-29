@@ -19,6 +19,7 @@ const ACCOUNT_LABELS: Record<string, string> = {
   active: "Active",
   suspended: "Suspended",
   banned: "Banned",
+  deleted: "Deleted",
 };
 
 const subscriptionStyles: Record<string, string> = {
@@ -37,6 +38,7 @@ const accountStyles: Record<string, string> = {
   active: "bg-emerald-500/15 text-emerald-200/90 ring-1 ring-emerald-500/25",
   suspended: "bg-[oklch(0.55_0.04_75/0.12)] text-[oklch(0.85_0.03_75)] ring-1 ring-[oklch(0.6_0.04_75/0.2)]",
   banned: "bg-[oklch(0.5_0.05_25/0.12)] text-[oklch(0.82_0.03_25)] ring-1 ring-[oklch(0.55_0.05_25/0.22)]",
+  deleted: "bg-[oklch(0.48_0.02_265/0.18)] text-[oklch(0.78_0.02_85)] ring-1 ring-[oklch(0.5_0.02_265/0.28)]",
 };
 
 export function SubscriptionStatusBadge({ status }: { status: string }) {

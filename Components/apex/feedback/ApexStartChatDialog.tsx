@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { MessageCirclePlus } from "lucide-react";
 import { toast } from "sonner";
@@ -20,7 +20,13 @@ import { Label } from "@/Components/ui/label";
 import { Textarea } from "@/Components/ui/textarea";
 import { ApexTenantPropertyPicker } from "@/Components/apex/feedback/ApexTenantPropertyPicker";
 
-export function ApexStartChatDialog({ defaultTin }: { defaultTin?: string }) {
+type Props = {
+  defaultTin?: string;
+  onDone?: () => void;
+  trigger?: ReactNode;
+};
+
+export function ApexStartChatDialog({ defaultTin, onDone, trigger }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loadingTenants, setLoadingTenants] = useState(false);
@@ -36,6 +42,10 @@ export function ApexStartChatDialog({ defaultTin }: { defaultTin?: string }) {
   }, [defaultTin]);
 
   useEffect(() => {
+    if (open && defaultTin) setTin(defaultTin);
+  }, [open, defaultTin]);
+
+  useEffect(() => {
     if (!open) return;
     void (async () => {
       setLoadingTenants(true);
@@ -43,6 +53,10 @@ export function ApexStartChatDialog({ defaultTin }: { defaultTin?: string }) {
         const list = await fetchTenants();
         setOptions(
           list
+            .filter(
+              (t) =>
+                String(t.accountStatus || "").toLowerCase() === "active",
+            )
             .map((t) => ({
               tinNumber: t.tinNumber,
               hotelDisplayName: t.hotelDisplayName,
@@ -75,8 +89,9 @@ export function ApexStartChatDialog({ defaultTin }: { defaultTin?: string }) {
       const thread = await startApexChatWithTenant(tin.trim(), message.trim());
       toast.success("Chat opened");
       setOpen(false);
-      setTin("");
+      setTin(defaultTin ?? "");
       setMessage("");
+      onDone?.();
       router.push(`/feedback/${thread.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not start chat");
@@ -88,10 +103,12 @@ export function ApexStartChatDialog({ defaultTin }: { defaultTin?: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="apex" size="default" className="gap-2">
-          <MessageCirclePlus className="h-4 w-4" />
-          Start chat
-        </Button>
+        {trigger ?? (
+          <Button variant="apex" size="default" className="gap-2">
+            <MessageCirclePlus className="h-4 w-4" />
+            Start chat
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>

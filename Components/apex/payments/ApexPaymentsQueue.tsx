@@ -159,8 +159,10 @@ export function ApexPaymentsQueue({ kind }: { kind: PaymentKind }) {
         id: "actions",
         header: () => <div className="text-right">Actions</div>,
         enableSorting: false,
+        minSize: 220,
+        meta: { className: "whitespace-nowrap", headerClassName: "whitespace-nowrap" },
         cell: ({ row }) => (
-          <div className="text-right">
+          <div className="flex justify-end whitespace-nowrap">
             <ApexApproveRejectActions
               busy={busyId === row.original.id}
               rejectTitle={`Reject ${kind} payment`}
@@ -211,6 +213,7 @@ export function ApexPaymentsQueue({ kind }: { kind: PaymentKind }) {
             columns={columns}
             noun="payments"
             pageSize={10}
+            tableClassName="min-w-max"
           />
         )}
       </ApexPanel>

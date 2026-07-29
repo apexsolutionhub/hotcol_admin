@@ -15,6 +15,7 @@ export type DashboardSummary = {
   suspendedTenants: number;
   bannedTenants: number;
   setupPendingTenants: number;
+  inactiveTenants: number;
   billingHoldTenants: number;
   graceOrExpiredTenants: number;
   trialsEndingSoon: number;
@@ -37,6 +38,24 @@ export type SignupPipelineRow = {
   registeredAt: string;
   pendingSetupPaymentId: number | null;
 };
+
+export type SignupReviewStatus = "pending" | "approved" | "rejected";
+
+/** Tenant signed up in the current calendar month, with setup review status. */
+export type MonthlySignupRow = SignupPipelineRow & {
+  status: SignupReviewStatus;
+  subscriptionStatus: string;
+};
+
+function isInCurrentCalendarMonth(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  return (
+    date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
+  );
+}
 
 export type TenantBillingInput = {
   setupFeeETB?: number;
@@ -200,6 +219,7 @@ export type FeedbackThreadRow = {
 export type FeedbackDirectoryRow = {
   tinNumber: string;
   hotelDisplayName: string;
+  logoUrl?: string | null;
   threadId: number | null;
   chatStatus: string;
   unreadFromTenant: number;
@@ -383,7 +403,7 @@ export async function fetchDashboardSummary() {
     const data = await apexGraphql<{ apexDashboardSummary: DashboardSummary }>(`
       query { apexDashboardSummary {
         pendingSetupPayments pendingQuarterlyPayments pendingYearlyPayments unreadFeedback
-        suspendedTenants bannedTenants setupPendingTenants
+        suspendedTenants bannedTenants setupPendingTenants inactiveTenants
         billingHoldTenants graceOrExpiredTenants trialsEndingSoon trialExpiredTenants
         totalTenants totalUsers disabledUsers pendingModuleRequests
         tenantsByBusinessType { businessType label count }
@@ -475,7 +495,7 @@ export async function fetchFeedbackDirectory(search?: string) {
     const data = await apexGraphql<{ apexFeedbackDirectory: FeedbackDirectoryRow[] }>(
       `query($search: String) {
         apexFeedbackDirectory(search: $search) {
-          tinNumber hotelDisplayName threadId chatStatus
+          tinNumber hotelDisplayName logoUrl threadId chatStatus
           unreadFromTenant updatedAt
           lastMessage { body senderSide createdAt }
         }
@@ -593,6 +613,26 @@ export async function unbanTenant(tinNumber: string) {
   afterTenantAccountMutation();
 }
 
+export async function deleteTenant(tinNumber: string, reason: string) {
+  await apexGraphql(
+    `mutation($tin: String!, $reason: String!) {
+      deleteTenant(tinNumber: $tin, reason: $reason)
+    }`,
+    { tin: tinNumber, reason: reason.trim() },
+  );
+  afterTenantAccountMutation();
+}
+
+export async function restoreDeletedTenant(tinNumber: string, reason?: string) {
+  await apexGraphql(
+    `mutation($tin: String!, $reason: String) {
+      restoreDeletedTenant(tinNumber: $tin, reason: $reason)
+    }`,
+    { tin: tinNumber, reason: reason?.trim() || null },
+  );
+  afterTenantAccountMutation();
+}
+
 export async function setUserLoginDisabled(userId: number, disabled: boolean, reason?: string) {
   await apexGraphql(
     `mutation($id: Int!, $disabled: Boolean!, $reason: String) {
@@ -632,6 +672,41 @@ export async function startApexChatWithTenant(tinNumber: string, body: string) {
   invalidateApexCaches("apex:feedback-dir");
   invalidateApexCaches("apex:summary");
   return data.startApexChatWithTenant;
+}
+
+export type BroadcastChatResult = {
+  sentCount: number;
+  failedCount: number;
+  threadIds: number[];
+  failures: { tinNumber: string; message: string }[];
+};
+
+export async function broadcastApexChatToTenants(
+  tinNumbers: string[],
+  body: string,
+): Promise<BroadcastChatResult> {
+  const text = body.trim();
+  if (!text) throw new Error("Broadcast message is required");
+  const tins = [...new Set(tinNumbers.map((t) => t.trim()).filter(Boolean))];
+  if (tins.length === 0) throw new Error("Select at least one property");
+
+  const data = await apexGraphql<{
+    broadcastApexChatToTenants: BroadcastChatResult;
+  }>(
+    `mutation($tins: [String!]!, $body: String!) {
+      broadcastApexChatToTenants(tinNumbers: $tins, body: $body) {
+        sentCount
+        failedCount
+        threadIds
+        failures { tinNumber message }
+      }
+    }`,
+    { tins, body: text },
+  );
+  invalidateApexCaches("apex:feedback");
+  invalidateApexCaches("apex:feedback-dir");
+  invalidateApexCaches("apex:summary");
+  return data.broadcastApexChatToTenants;
 }
 
 export async function fetchTenantUsers(
@@ -714,6 +789,171 @@ export async function fetchSignupPipeline(limit = 50) {
     );
     return data.apexSignupPipeline;
   });
+}
+
+/**
+ * Signups for the current calendar month (pending, approved, and rejected).
+ * Pending = has a pending setup payment submission (same queue as Setup payments).
+ * Rejected/approved otherwise come from setup fee flag + payment history.
+ */
+export async function fetchMonthlySignups(): Promise<MonthlySignupRow[]> {
+  const now = new Date();
+  const key = `apex:signups:month:${now.getFullYear()}-${now.getMonth()}`;
+  return dedupeApexRead(key, async () => {
+    const [tenants, pipeline, pendingSetupPayments] = await Promise.all([
+      fetchTenants(),
+      fetchSignupPipeline(200),
+      fetchPendingPayments("setup"),
+    ]);
+
+    const pipelineByTin = new Map(pipeline.map((row) => [row.tinNumber, row]));
+    const pendingSetupByTin = new Map(
+      pendingSetupPayments.map((row) => [row.tinNumber, row]),
+    );
+    const monthTenants = tenants.filter(
+      (tenant) =>
+        !tenant.isIllustrationTenant && isInCurrentCalendarMonth(tenant.createdAt),
+    );
+
+    const resolved: MonthlySignupRow[] = [];
+    const needsHistory: TenantListItem[] = [];
+
+    for (const tenant of monthTenants) {
+      const pipe = pipelineByTin.get(tenant.tinNumber);
+      const pendingPayment = pendingSetupByTin.get(tenant.tinNumber);
+      const registeredAt =
+        tenant.createdAt ?? pipe?.registeredAt ?? new Date().toISOString();
+
+      if (tenant.setupFeeApproved) {
+        resolved.push({
+          tinNumber: tenant.tinNumber,
+          hotelDisplayName: tenant.hotelDisplayName,
+          businessType: tenant.businessType,
+          ownerUserName: tenant.ownerUserName,
+          setupFeeETB: tenant.setupFeeETB,
+          paymentTransactionRef:
+            pipe?.paymentTransactionRef ?? pendingPayment?.transactionRef ?? null,
+          paymentChannel:
+            pipe?.paymentChannel ?? pendingPayment?.paymentChannel ?? null,
+          registeredAt,
+          pendingSetupPaymentId: null,
+          status: "approved",
+          subscriptionStatus: tenant.subscriptionStatus,
+        });
+        continue;
+      }
+
+      // Align with Setup payments: only "pending" when a setup submission awaits review.
+      const awaitingReview =
+        pendingPayment != null ||
+        (pipe != null && pipe.pendingSetupPaymentId != null);
+
+      if (awaitingReview) {
+        resolved.push({
+          tinNumber: tenant.tinNumber,
+          hotelDisplayName:
+            pipe?.hotelDisplayName ||
+            pendingPayment?.hotelDisplayName ||
+            tenant.hotelDisplayName,
+          businessType: tenant.businessType ?? pipe?.businessType ?? null,
+          ownerUserName: pipe?.ownerUserName || tenant.ownerUserName,
+          setupFeeETB:
+            pipe?.setupFeeETB ||
+            pendingPayment?.amountETB ||
+            tenant.setupFeeETB,
+          paymentTransactionRef:
+            pipe?.paymentTransactionRef ?? pendingPayment?.transactionRef ?? null,
+          paymentChannel:
+            pipe?.paymentChannel ?? pendingPayment?.paymentChannel ?? null,
+          registeredAt: pipe?.registeredAt || registeredAt,
+          pendingSetupPaymentId:
+            pipe?.pendingSetupPaymentId ?? pendingPayment?.id ?? null,
+          status: "pending",
+          subscriptionStatus: tenant.subscriptionStatus,
+        });
+        continue;
+      }
+
+      needsHistory.push(tenant);
+    }
+
+    await Promise.all(
+      needsHistory.map(async (tenant) => {
+        const registeredAt = tenant.createdAt ?? new Date().toISOString();
+        let status: SignupReviewStatus = "pending";
+        let paymentTransactionRef: string | null = null;
+
+        try {
+          const payments = await fetchTenantPaymentHistory(tenant.tinNumber, 40);
+          const setupPayments = payments
+            .filter((p) => String(p.paymentKind).toLowerCase() === "setup")
+            .sort(
+              (a, b) =>
+                new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+            );
+          const latest = setupPayments[0];
+          if (latest) {
+            paymentTransactionRef = latest.transactionRef;
+          }
+
+          const statuses = setupPayments.map((p) =>
+            normalizeSetupPaymentStatus(p.status),
+          );
+          if (statuses.includes("pending")) {
+            status = "pending";
+          } else if (statuses.includes("rejected")) {
+            status = "rejected";
+            const rejected = setupPayments.find(
+              (p) => normalizeSetupPaymentStatus(p.status) === "rejected",
+            );
+            if (rejected) paymentTransactionRef = rejected.transactionRef;
+          } else if (statuses.includes("approved")) {
+            status = "approved";
+          } else {
+            status = "pending";
+          }
+        } catch {
+          status = "pending";
+        }
+
+        resolved.push({
+          tinNumber: tenant.tinNumber,
+          hotelDisplayName: tenant.hotelDisplayName,
+          businessType: tenant.businessType,
+          ownerUserName: tenant.ownerUserName,
+          setupFeeETB: tenant.setupFeeETB,
+          paymentTransactionRef,
+          paymentChannel: null,
+          registeredAt,
+          pendingSetupPaymentId: null,
+          status,
+          subscriptionStatus: tenant.subscriptionStatus,
+        });
+      }),
+    );
+
+    resolved.sort(
+      (a, b) =>
+        new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
+    );
+    return resolved;
+  });
+}
+
+function normalizeSetupPaymentStatus(raw: string): SignupReviewStatus {
+  const status = String(raw || "").toLowerCase().trim();
+  if (
+    status === "rejected" ||
+    status === "declined" ||
+    status === "denied" ||
+    status.includes("reject")
+  ) {
+    return "rejected";
+  }
+  if (status === "approved" || status === "paid" || status.includes("approv")) {
+    return "approved";
+  }
+  return "pending";
 }
 
 export async function fetchTenantPaymentHistory(tinNumber: string, limit = 50) {
