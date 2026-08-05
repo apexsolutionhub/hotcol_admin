@@ -7,8 +7,11 @@ import {
   scheduleApexSessionExpiredRedirect,
 } from "./sessionExpiry";
 
+export const APEX_VERCEL_GRAPHQL_URL =
+  "https://hotcol-admin-backend.vercel.app/graphql";
+
 function normalizeGraphqlHttpUrl(raw: string | undefined): string {
-  const fallback = "https://hotcol-admin-backend.vercel.app/graphql";
+  const fallback = APEX_VERCEL_GRAPHQL_URL;
   const s = (raw ?? fallback).trim() || fallback;
   const base = s.replace(/\/+$/, "");
   if (/\/graphql$/i.test(base)) return base;
@@ -67,21 +70,44 @@ export async function apexGraphql<T>(
   const response = await apexApi.post(API_URL, { query, variables });
 
   if (response.data.errors?.length) {
-    throw new Error(response.data.errors[0]?.message || "GraphQL error");
+    const msg = String(response.data.errors[0]?.message || "GraphQL error");
+    if (/pool timeout|failed to retrieve a connection/i.test(msg)) {
+      throw new Error(
+        "Apex API could not open a database connection. Redeploy hotcol-admin-backend and try again.",
+      );
+    }
+    throw new Error(msg);
   }
   return response.data.data as T;
 }
 
 export function mapApexApiError(error: unknown, fallback = "Request failed"): string {
   if (isApexSessionExpiredError(error)) return "";
+  const graphqlMsg = (() => {
+    if (!axios.isAxiosError(error)) return null;
+    const msg = (error.response?.data as { errors?: Array<{ message?: string }> } | undefined)
+      ?.errors?.[0]?.message;
+    return typeof msg === "string" && msg.trim() ? msg.trim() : null;
+  })();
+  if (graphqlMsg) {
+    if (/pool timeout|failed to retrieve a connection/i.test(graphqlMsg)) {
+      return "Apex API could not open a database connection. Redeploy hotcol-admin-backend and try again.";
+    }
+    return graphqlMsg;
+  }
   if (axios.isAxiosError(error)) {
     if (error.code === "ECONNABORTED") {
-      return `Request timed out (>${APEX_GRAPHQL_TIMEOUT_MS / 1000}s). Check your connection and try again.`;
+      return `Request timed out (>${APEX_GRAPHQL_TIMEOUT_MS / 1000}s). The Vercel API may still be waking up — try again.`;
     }
     if (!error.response) {
-      return "Cannot reach the Apex API. Is the GraphQL server running?";
+      return `Cannot reach the Apex API at ${API_URL}. Confirm hotcol-admin-backend is deployed on Vercel.`;
     }
   }
-  if (error instanceof Error && error.message) return error.message;
+  if (error instanceof Error && error.message) {
+    if (/pool timeout|failed to retrieve a connection/i.test(error.message)) {
+      return "Apex API could not open a database connection. Redeploy hotcol-admin-backend and try again.";
+    }
+    return error.message;
+  }
   return fallback;
 }

@@ -36,7 +36,10 @@ export interface user {
   password: string
 }
 
-const api = "http://localhost:4001/graphql"
+const api = (
+  process.env.NEXT_PUBLIC_APEX_API_URL ||
+  "https://hotcol-admin-backend.vercel.app/graphql"
+).replace(/\/+$/, "").replace(/\/graphql$/i, "") + "/graphql";
 
 export const handleUploadSuccess = (
   result: unknown,

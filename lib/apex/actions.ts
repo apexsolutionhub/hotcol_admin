@@ -373,8 +373,11 @@ export function mapApexLoginError(error: unknown): string {
   if (m.includes("invalid username or password")) {
     return "Invalid username or password.";
   }
+  if (m.includes("pool timeout") || m.includes("failed to retrieve a connection")) {
+    return "Apex API could not open a database connection. Redeploy hotcol-admin-backend and try again.";
+  }
   if (m.includes("network") || m.includes("cannot reach")) {
-    return "Cannot reach the Apex API. Start GraphQl-BackEnd with npm run dev.";
+    return "Cannot reach the Apex API. Confirm hotcol-admin-backend is deployed on Vercel.";
   }
   return raw || "Login failed";
 }
