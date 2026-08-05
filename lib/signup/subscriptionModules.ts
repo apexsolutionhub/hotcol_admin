@@ -21,7 +21,6 @@ export function isBusinessTypeComingSoon(type: BusinessType): boolean {
 }
 
 export const SIGNUP_COMING_SOON_MODULES = [
-  "HR Module",
 ] as const satisfies readonly ModuleOption[];
 
 export const MODULE_DESCRIPTIONS: Record<ModuleOption, string> = {
@@ -35,7 +34,8 @@ export const MODULE_DESCRIPTIONS: Record<ModuleOption, string> = {
     "Corporate credit registration, agreements, tiers, and usage reporting.",
   "Financial Management":
     "Cost control and finance roles; purchase, registration, and stock movement approvals.",
-  "HR Module": "Staff HR workflows — coming soon.",
+  "HR Module":
+    "Employees, leave, attendance/shifts, documents, payroll, and incidents.",
   "Room Management":
     "Rooms, reception check-in/out, guest stays, billing, laundry and in-room F&B.",
   "Cleaning and Maintenance":
@@ -125,49 +125,57 @@ export function calculateSignupPricing(
   const hasInv = set.has("Inventory");
   const hasFin = set.has("Financial Management");
   const hasCredit = set.has("Credit Management");
+  const hasHr = set.has("HR Module");
+  const hrSetup = hasHr ? 5_000 : 0;
+  const hrQuarterly = hasHr ? 2_000 : 0;
 
   if (businessType === "Cafe and Restaurant") {
-    if (hasCredit) return { setupFeeETB: 35_000, quarterlyFeeETB: 10_000 };
-    if (hasInv) return { setupFeeETB: 30_000, quarterlyFeeETB: 7_000 };
-    return { setupFeeETB: 25_000, quarterlyFeeETB: 5_000 };
+    let base: SignupPricing;
+    if (hasCredit) base = { setupFeeETB: 35_000, quarterlyFeeETB: 10_000 };
+    else if (hasInv) base = { setupFeeETB: 30_000, quarterlyFeeETB: 7_000 };
+    else base = { setupFeeETB: 25_000, quarterlyFeeETB: 5_000 };
+    return {
+      setupFeeETB: base.setupFeeETB + hrSetup,
+      quarterlyFeeETB: base.quarterlyFeeETB + hrQuarterly,
+    };
   }
 
   if (isLodgingBusinessType(businessType)) {
+    let base: SignupPricing;
     if (hasCafe) {
       if (hasInv && hasFin && hasCredit) {
-        return { setupFeeETB: 35_000, quarterlyFeeETB: 15_000 };
+        base = { setupFeeETB: 35_000, quarterlyFeeETB: 15_000 };
+      } else if (hasInv && hasCredit) {
+        base = { setupFeeETB: 35_000, quarterlyFeeETB: 10_000 };
+      } else if (hasCredit && !hasInv) {
+        base = { setupFeeETB: 35_000, quarterlyFeeETB: 10_000 };
+      } else if (hasInv && hasFin) {
+        base = { setupFeeETB: 30_000, quarterlyFeeETB: 10_000 };
+      } else if (hasInv) {
+        base = { setupFeeETB: 30_000, quarterlyFeeETB: 10_000 };
+      } else {
+        base = { setupFeeETB: 25_000, quarterlyFeeETB: 5_000 };
       }
-      if (hasInv && hasCredit) {
-        return { setupFeeETB: 35_000, quarterlyFeeETB: 10_000 };
-      }
-      if (hasCredit && !hasInv) {
-        return { setupFeeETB: 35_000, quarterlyFeeETB: 10_000 };
-      }
-      if (hasInv && hasFin) {
-        return { setupFeeETB: 30_000, quarterlyFeeETB: 10_000 };
-      }
-      if (hasInv) {
-        return { setupFeeETB: 30_000, quarterlyFeeETB: 10_000 };
-      }
-      return { setupFeeETB: 25_000, quarterlyFeeETB: 5_000 };
+    } else if (hasInv && hasFin && hasCredit) {
+      base = { setupFeeETB: 35_000, quarterlyFeeETB: 15_000 };
+    } else if (hasInv && hasCredit) {
+      base = { setupFeeETB: 30_000, quarterlyFeeETB: 10_000 };
+    } else if (hasCredit && !hasInv) {
+      base = { setupFeeETB: 20_000, quarterlyFeeETB: 7_000 };
+    } else if (hasInv && hasFin) {
+      base = { setupFeeETB: 30_000, quarterlyFeeETB: 10_000 };
+    } else if (hasInv) {
+      base = { setupFeeETB: 25_000, quarterlyFeeETB: 10_000 };
+    } else {
+      base = { setupFeeETB: 0, quarterlyFeeETB: 0 };
     }
-    if (hasInv && hasFin && hasCredit) {
-      return { setupFeeETB: 35_000, quarterlyFeeETB: 15_000 };
-    }
-    if (hasInv && hasCredit) {
-      return { setupFeeETB: 30_000, quarterlyFeeETB: 10_000 };
-    }
-    if (hasCredit && !hasInv) {
-      return { setupFeeETB: 20_000, quarterlyFeeETB: 7_000 };
-    }
-    if (hasInv && hasFin) {
-      return { setupFeeETB: 30_000, quarterlyFeeETB: 10_000 };
-    }
-    if (hasInv) return { setupFeeETB: 25_000, quarterlyFeeETB: 10_000 };
-    return { setupFeeETB: 0, quarterlyFeeETB: 0 };
+    return {
+      setupFeeETB: base.setupFeeETB + hrSetup,
+      quarterlyFeeETB: base.quarterlyFeeETB + hrQuarterly,
+    };
   }
 
-  return { setupFeeETB: 0, quarterlyFeeETB: 0 };
+  return { setupFeeETB: hrSetup, quarterlyFeeETB: hrQuarterly };
 }
 
 export function formatETB(amount: number): string {
