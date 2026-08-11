@@ -43,6 +43,7 @@ import { ApexTenantModulesEditor } from "@/Components/apex/tenant/ApexTenantModu
 import { ApexTenantStaffTable } from "@/Components/apex/tenant/ApexTenantStaffTable";
 import { ApexTenantPaymentsTable } from "@/Components/apex/tenant/ApexTenantPaymentsTable";
 import { ApexPortfolioOwnerPanel } from "@/Components/apex/tenant/ApexPortfolioOwnerPanel";
+import { ApexTenantExcelImport } from "@/Components/apex/tenant/ApexTenantExcelImport";
 
 export default function TenantDetailPage() {
   const params = useParams();
@@ -112,7 +113,7 @@ export default function TenantDetailPage() {
 
       <ApexTenantSectionNav value={tab} onValueChange={setTab} />
 
-      <div key={tab} className="apex-tenant-tab-panel space-y-6">
+      <div key={tab} className="apex-tenant-tab-panel min-w-0 space-y-6">
         {tab === "reports" ? (
           <ApexTenantReporting tenant={tenant} payments={payments} />
         ) : null}
@@ -192,6 +193,13 @@ export default function TenantDetailPage() {
               run(() => updateTenantModules(tin, modules, recalcFees))
             }
             onSyncStaff={() => run(() => syncTenantStaffModules(tin))}
+          />
+        ) : null}
+
+        {tab === "excel" ? (
+          <ApexTenantExcelImport
+            key={`excel-${tenant.tinNumber}-${(tenant.modules as string[]).join(",")}`}
+            tenant={tenant}
           />
         ) : null}
 

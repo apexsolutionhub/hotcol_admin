@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   BarChart3,
   CreditCard,
+  FileSpreadsheet,
   Layers3,
   Receipt,
   Settings2,
@@ -19,6 +20,7 @@ export type TenantTabId =
   | "access"
   | "billing"
   | "modules"
+  | "excel"
   | "staff"
   | "owner";
 
@@ -59,6 +61,12 @@ export const TENANT_TABS: TenantSection[] = [
     label: "Modules",
     icon: Layers3,
     description: "Enabled product modules",
+  },
+  {
+    id: "excel",
+    label: "Excel import",
+    icon: FileSpreadsheet,
+    description: "Sample templates and bulk seed import",
   },
   {
     id: "staff",

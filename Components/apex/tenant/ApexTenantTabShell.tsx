@@ -84,7 +84,7 @@ export function ApexTenantTabShell({
           {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
         </div>
       </CardHeader>
-      <CardContent className={cn("px-5 py-5 sm:px-6", contentClassName)}>
+      <CardContent className={cn("min-w-0 px-5 py-5 sm:px-6", contentClassName)}>
         {children}
       </CardContent>
     </Card>
