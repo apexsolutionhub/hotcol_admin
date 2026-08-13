@@ -191,7 +191,7 @@ export function ApexTenantBillingActions({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              Holds pause billing enforcement without changing account status.
+              Holds pause billing and block property staff login until released.
             </p>
             {tenant.billingHold ? (
               <Button

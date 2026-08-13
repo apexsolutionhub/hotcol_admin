@@ -330,7 +330,7 @@ export function ApexTenantBillingSettings({
               <div className="min-w-0">
                 <p className="text-sm font-medium">Billing hold</p>
                 <p className="text-xs text-muted-foreground">
-                  Pause collection pressure
+                  Pause billing and block staff login
                 </p>
               </div>
               <Switch
