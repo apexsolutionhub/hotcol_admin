@@ -13,6 +13,8 @@ import {
   SignupPricingSummary,
 } from "@/Components/signup/SignupModuleSelector";
 import { SignupApexAccessSection } from "@/Components/signup/SignupApexAccessSection";
+import { SignupCafeOrderModeSelector } from "@/Components/signup/SignupCafeOrderModeSelector";
+import { cafeModuleSelected, type CafeOrderMode } from "@/lib/cafeOrderMode";
 import { PendingButton } from "@/Components/ui/pending-button";
 import { Form, FormField, FormItem, FormLabel, FormMessage } from "@/Components/ui/form";
 import { Separator } from "@/Components/ui/separator";
@@ -87,6 +89,7 @@ export function ApexCreateTenantForm({ onCreated, onNavigateWithoutOwner }: Prop
       tinNumber: "",
       type: "Cafe and Restaurant",
       modules: [...SIGNUP_REQUIRED_MODULES_CAFE],
+      cafeOrderMode: "digital",
     },
   });
 
@@ -135,6 +138,9 @@ export function ApexCreateTenantForm({ onCreated, onNavigateWithoutOwner }: Prop
               confirmPaymentReceived,
               isIllustrationTenant,
               billingNotes: billingNotes.trim() || null,
+              cafeOrderMode: cafeModuleSelected(modules)
+                ? ((values.cafeOrderMode as CafeOrderMode) || "digital")
+                : "digital",
             });
 
             toast.success(
@@ -243,6 +249,22 @@ export function ApexCreateTenantForm({ onCreated, onNavigateWithoutOwner }: Prop
             businessType={businessType}
             modules={selectedModules ?? getDefaultSignupModules(businessType)}
           />
+          {cafeModuleSelected(selectedModules ?? []) ? (
+            <FormField
+              control={form.control}
+              name="cafeOrderMode"
+              render={({ field }) => (
+                <FormItem className="space-y-3 pt-2">
+                  <FormLabel>Café ordering mode</FormLabel>
+                  <SignupCafeOrderModeSelector
+                    value={(field.value as CafeOrderMode) || "digital"}
+                    onChange={field.onChange}
+                  />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ) : null}
         </SignupSection>
 
         <Separator />

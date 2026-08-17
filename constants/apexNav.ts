@@ -6,6 +6,7 @@ import {
   FileText,
   LayoutDashboard,
   MessageCircle,
+  Printer,
   Puzzle,
   Tags,
   UserPlus,
@@ -20,6 +21,7 @@ export type ApexNavBadgeKey =
   | "inactiveTenants"
   | "unreadFeedback"
   | "pendingModuleRequests"
+  | "pendingOrderModeRequests"
   | "disabledUsers";
 
 export type ApexNavItem = {
@@ -71,6 +73,14 @@ export const APEX_MONITORING_NAV: ApexNavItem[] = [
     icon: Puzzle,
     matchPrefix: true,
     badgeKey: "pendingModuleRequests",
+  },
+  {
+    id: "order-mode",
+    href: "/order-mode",
+    label: "Order mode requests",
+    icon: Printer,
+    matchPrefix: true,
+    badgeKey: "pendingOrderModeRequests",
   },
   {
     id: "audit",

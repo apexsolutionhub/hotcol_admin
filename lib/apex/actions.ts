@@ -24,6 +24,7 @@ export type DashboardSummary = {
   totalUsers: number;
   disabledUsers: number;
   pendingModuleRequests: number;
+  pendingOrderModeRequests: number;
   tenantsByBusinessType: { businessType: string; label: string; count: number }[];
 };
 
@@ -159,6 +160,8 @@ export type TenantDetail = {
     pendingStockOutRequests: number;
     pendingItemRegistrations: number;
   };
+  cafeOrderMode: string;
+  cafeOrderModeHistory: { mode: string; effectiveFrom: string; effectiveTo: string | null }[];
 };
 
 export type PaymentRow = {
@@ -203,6 +206,18 @@ export type ModuleChangeRequestRow = {
   requestedBySide: string;
   requestNote: string | null;
   requestedModules: string[];
+  createdAt: string;
+};
+
+export type OrderModeChangeRequestRow = {
+  id: number;
+  tinNumber: string;
+  hotelDisplayName: string;
+  status: string;
+  requestedBySide: string;
+  requestNote: string | null;
+  currentMode: string;
+  requestedMode: string;
   createdAt: string;
 };
 
@@ -274,6 +289,7 @@ export type ApexCreateTenantInput = {
   confirmPaymentReceived?: boolean;
   isIllustrationTenant?: boolean;
   billingNotes?: string | null;
+  cafeOrderMode?: string | null;
 };
 
 export type ApexCreateTenantOwnerInput = {
@@ -408,7 +424,7 @@ export async function fetchDashboardSummary() {
         pendingSetupPayments pendingQuarterlyPayments pendingYearlyPayments unreadFeedback
         suspendedTenants bannedTenants setupPendingTenants inactiveTenants
         billingHoldTenants graceOrExpiredTenants trialsEndingSoon trialExpiredTenants
-        totalTenants totalUsers disabledUsers pendingModuleRequests
+        totalTenants totalUsers disabledUsers pendingModuleRequests pendingOrderModeRequests
         tenantsByBusinessType { businessType label count }
       }}
     `);
@@ -452,6 +468,7 @@ export async function fetchTenantDetail(tinNumber: string) {
           staffCount ordersToday openOrders
           pendingPurchaseRequests pendingStockOutRequests pendingItemRegistrations
         }
+        cafeOrderMode cafeOrderModeHistory
       }
     }`,
     { tin: tinNumber },
@@ -775,6 +792,24 @@ export async function fetchModuleChangeRequests(status?: string) {
       ...row,
       requestedModules: normalizeModuleList(row.requestedModules),
     }));
+  });
+}
+
+export async function fetchOrderModeChangeRequests(status?: string) {
+  const key = `apex:order-mode:${status || "all"}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{
+      apexOrderModeChangeRequests: OrderModeChangeRequestRow[];
+    }>(
+      `query($status: String) {
+        apexOrderModeChangeRequests(status: $status) {
+          id tinNumber hotelDisplayName status requestedBySide requestNote
+          currentMode requestedMode createdAt
+        }
+      }`,
+      { status: status || null },
+    );
+    return data.apexOrderModeChangeRequests;
   });
 }
 
@@ -1131,6 +1166,36 @@ export async function rejectModuleChangeRequest(requestId: number, reviewNote?: 
   afterModuleMutation();
 }
 
+export async function approveOrderModeChangeRequest(requestId: number, reviewNote?: string) {
+  await apexGraphql(
+    `mutation($id: Int!, $note: String) {
+      approveOrderModeChangeRequest(requestId: $id, reviewNote: $note)
+    }`,
+    { id: requestId, note: reviewNote || null },
+  );
+  afterModuleMutation();
+}
+
+export async function rejectOrderModeChangeRequest(requestId: number, reviewNote?: string) {
+  await apexGraphql(
+    `mutation($id: Int!, $note: String) {
+      rejectOrderModeChangeRequest(requestId: $id, reviewNote: $note)
+    }`,
+    { id: requestId, note: reviewNote || null },
+  );
+  afterModuleMutation();
+}
+
+export async function updateTenantCafeOrderMode(tinNumber: string, cafeOrderMode: string) {
+  await apexGraphql(
+    `mutation($tin: String!, $mode: String!) {
+      updateTenantCafeOrderMode(tinNumber: $tin, cafeOrderMode: $mode)
+    }`,
+    { tin: tinNumber, mode: cafeOrderMode },
+  );
+  afterModuleMutation();
+}
+
 function afterOnboardingMutation() {
   invalidateApexCaches();
 }
@@ -1190,6 +1255,7 @@ export async function apexCreateTenant(
       $confirmPaymentReceived: Boolean
       $isIllustrationTenant: Boolean
       $billingNotes: String
+      $cafeOrderMode: String
     ) {
       apexCreateTenant(
         hotelName: $hotelName
@@ -1204,6 +1270,7 @@ export async function apexCreateTenant(
         confirmPaymentReceived: $confirmPaymentReceived
         isIllustrationTenant: $isIllustrationTenant
         billingNotes: $billingNotes
+        cafeOrderMode: $cafeOrderMode
       ) {
         tinNumber hotelDisplayName ownerUserName ownerRole setupFeeETB setupFeeApproved userId
       }
@@ -1221,6 +1288,7 @@ export async function apexCreateTenant(
       confirmPaymentReceived: input.confirmPaymentReceived ?? false,
       isIllustrationTenant: input.isIllustrationTenant ?? false,
       billingNotes: input.billingNotes ?? null,
+      cafeOrderMode: input.cafeOrderMode ?? "digital",
     },
   );
   afterOnboardingMutation();

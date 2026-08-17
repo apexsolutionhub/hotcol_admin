@@ -39,6 +39,7 @@ export const ApexCreateTenantSchema = z
       ),
     type: businessTypeEnum,
     modules: z.array(moduleEnum).min(1, "Please select at least one module"),
+    cafeOrderMode: z.enum(["digital", "analog"]).optional(),
   })
   .superRefine((data, ctx) => {
     if (isBusinessTypeComingSoon(data.type)) {
