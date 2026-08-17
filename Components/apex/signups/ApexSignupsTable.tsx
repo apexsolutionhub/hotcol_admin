@@ -10,6 +10,7 @@ import { ApexApproveRejectActions } from "@/Components/apex/layout/ApexApproveRe
 import { Badge } from "@/Components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import { businessTypeLabel } from "@/constants/businessTypes";
+import { CafeOrderModeBadge } from "@/Components/apex/CafeOrderModeBadge";
 import {
   approveSetup,
   rejectSetup,
@@ -147,6 +148,11 @@ export function ApexSignupsTable({ rows, onChanged }: Props) {
             {businessTypeLabel(row.original.businessType)}
           </span>
         ),
+      },
+      {
+        id: "cafeOrderMode",
+        header: "Order mode",
+        cell: ({ row }) => <CafeOrderModeBadge mode={row.original.cafeOrderMode} />,
       },
       {
         accessorKey: "ownerUserName",

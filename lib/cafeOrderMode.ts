@@ -41,3 +41,25 @@ export function unusedCafeOrderMode(current: unknown): CafeOrderMode {
 export function cafeModuleSelected(modules: readonly string[]): boolean {
   return modules.includes("Cafe and Restaurant");
 }
+
+export function cafeOrderModeNoteLine(mode: unknown): string {
+  return `[Cafe order mode: ${parseCafeOrderMode(mode)}]`;
+}
+
+export function parseCafeOrderModeFromRequestNote(
+  requestNote: string | null | undefined,
+): CafeOrderMode | null {
+  const match = /\[Cafe order mode:\s*(digital|analog)\]/i.exec(
+    String(requestNote || ""),
+  );
+  return match ? parseCafeOrderMode(match[1]) : null;
+}
+
+/** Display mode when Cafe and Restaurant is in the module list; otherwise null. */
+export function cafeOrderModeForModules(
+  modules: readonly string[] | null | undefined,
+  storedMode: unknown,
+): CafeOrderMode | null {
+  if (!cafeModuleSelected(modules ?? [])) return null;
+  return parseCafeOrderMode(storedMode);
+}

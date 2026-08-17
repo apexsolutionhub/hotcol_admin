@@ -41,6 +41,8 @@ import {
 } from "@/lib/apex/moduleChangeRequest";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { CafeOrderModeBadge } from "@/Components/apex/CafeOrderModeBadge";
+import { cafeModuleSelected } from "@/lib/cafeOrderMode";
 
 type StatusFilter = "pending" | "approved" | "rejected" | "all";
 
@@ -266,6 +268,18 @@ function ModuleRequestSheetBody({
             <dt className="text-[11px] text-muted-foreground">Requested by</dt>
             <dd className="font-medium capitalize">{row.requestedBySide}</dd>
           </div>
+          {parsed.requestedCafeOrderMode ||
+          cafeModuleSelected(parsed.changedModules) ||
+          cafeModuleSelected(parsed.projectedModules) ? (
+            <div className="min-w-0">
+              <dt className="text-[11px] text-muted-foreground">Cafe order mode</dt>
+              <dd className="pt-1">
+                <CafeOrderModeBadge
+                  mode={parsed.requestedCafeOrderMode || "digital"}
+                />
+              </dd>
+            </div>
+          ) : null}
           <div className="min-w-0">
             <dt className="text-[11px] text-muted-foreground">Submitted</dt>
             <dd className="font-medium">
@@ -634,6 +648,29 @@ export function ApexModuleRequestsTable({ rows, onChanged }: Props) {
         cell: ({ row }) => {
           const parsed = getParsed(row.original);
           return <ChangeTypePill changeType={parsed.changeType} />;
+        },
+      },
+      {
+        id: "cafeOrderMode",
+        header: "Order mode",
+        size: 140,
+        minSize: 130,
+        maxSize: 160,
+        meta: {
+          className: "whitespace-nowrap",
+          headerClassName: "whitespace-nowrap",
+        } satisfies ColumnMeta,
+        cell: ({ row }) => {
+          const parsed = getParsed(row.original);
+          const mode =
+            row.original.requestedCafeOrderMode || parsed.requestedCafeOrderMode;
+          const show =
+            Boolean(mode) ||
+            cafeModuleSelected(parsed.changedModules) ||
+            cafeModuleSelected(parsed.projectedModules);
+          return show ? <CafeOrderModeBadge mode={mode || "digital"} /> : (
+            <span className="text-xs text-muted-foreground">—</span>
+          );
         },
       },
       {

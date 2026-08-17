@@ -12,6 +12,8 @@ import {
 } from "@/Components/apex/tenant/ApexTenantTabShell";
 import { APEX_SUBSCRIPTION_MODULES } from "@/constants/subscriptionModules";
 import type { TenantDetail } from "@/lib/apex/actions";
+import { CafeOrderModeBadge } from "@/Components/apex/CafeOrderModeBadge";
+import { cafeModuleSelected } from "@/lib/cafeOrderMode";
 import { cn } from "@/lib/utils";
 
 function formatEtb(n: number) {
@@ -101,6 +103,13 @@ export function ApexTenantModulesEditor({
             );
           })}
         </div>
+
+        {cafeModuleSelected(tenant.modules) ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-white/8 bg-white/3 px-3.5 py-3">
+            <p className="text-sm text-muted-foreground">Current cafe order mode</p>
+            <CafeOrderModeBadge mode={tenant.cafeOrderMode} />
+          </div>
+        ) : null}
 
         {tenant.feesManuallySet ? (
           <label

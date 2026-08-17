@@ -7,6 +7,8 @@ import {
   BusinessTypeBadge,
   SubscriptionStatusBadge,
 } from "@/Components/apex/StatusBadge";
+import { CafeOrderModeBadge } from "@/Components/apex/CafeOrderModeBadge";
+import { cafeModuleSelected } from "@/lib/cafeOrderMode";
 import { cn } from "@/lib/utils";
 
 function isLodging(bt: string | null | undefined) {
@@ -101,6 +103,9 @@ export function ApexTenantSummaryStrip({ tenant }: { tenant: TenantDetail }) {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <BusinessTypeBadge businessType={tenant.businessType} />
+                {cafeModuleSelected(tenant.modules) ? (
+                  <CafeOrderModeBadge mode={tenant.cafeOrderMode} />
+                ) : null}
                 <AccountStatusBadge status={tenant.accountStatus} />
                 <SubscriptionStatusBadge status={tenant.subscriptionStatus} />
                 {tenant.billingHold ? (

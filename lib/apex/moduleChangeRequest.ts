@@ -1,3 +1,5 @@
+import { parseCafeOrderModeFromRequestNote } from "@/lib/cafeOrderMode";
+
 export type ModuleChangeKind = "add" | "remove" | "unknown";
 
 export type ParsedModuleChangeRequest = {
@@ -6,6 +8,7 @@ export type ParsedModuleChangeRequest = {
   currentModules: string[];
   projectedModules: string[];
   freeNote: string | null;
+  requestedCafeOrderMode: "digital" | "analog" | null;
 };
 
 function parseModuleList(line: string, prefix: string): string[] {
@@ -51,6 +54,7 @@ export function parseModuleChangeRequestNote(
       currentModules: [],
       projectedModules,
       freeNote: null,
+      requestedCafeOrderMode: null,
     };
   }
 
@@ -84,6 +88,7 @@ export function parseModuleChangeRequestNote(
       freeNoteStart = i + 1;
       break;
     }
+    if (/^\[Cafe order mode:/i.test(line)) continue;
     if (/^Requested by:/i.test(line)) continue;
     if (freeNoteStart < 0 && !line.startsWith("[")) {
       freeNoteStart = i;
@@ -104,5 +109,6 @@ export function parseModuleChangeRequestNote(
     projectedModules:
       projectedFromNote.length > 0 ? projectedFromNote : projectedModules,
     freeNote,
+    requestedCafeOrderMode: parseCafeOrderModeFromRequestNote(note),
   };
 }

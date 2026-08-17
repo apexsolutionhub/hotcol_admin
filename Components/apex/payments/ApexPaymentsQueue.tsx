@@ -21,6 +21,7 @@ import { ApexEmptyState } from "@/Components/apex/layout/ApexEmptyState";
 import { ApexTableSkeleton } from "@/Components/apex/layout/ApexTableSkeleton";
 import { ApexApproveRejectActions } from "@/Components/apex/layout/ApexApproveRejectActions";
 import { Badge } from "@/Components/ui/badge";
+import { CafeOrderModeBadge } from "@/Components/apex/CafeOrderModeBadge";
 import { useLoadCoordinator } from "@/hooks/useLoadCoordinator";
 import { useApexDashboard } from "@/lib/apex/dashboard-context";
 
@@ -116,6 +117,11 @@ export function ApexPaymentsQueue({ kind }: { kind: PaymentKind }) {
             {row.original.hotelDisplayName ?? "—"}
           </Link>
         ),
+      },
+      {
+        id: "cafeOrderMode",
+        header: "Order mode",
+        cell: ({ row }) => <CafeOrderModeBadge mode={row.original.cafeOrderMode} />,
       },
       {
         accessorKey: "tinNumber",

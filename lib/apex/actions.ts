@@ -38,6 +38,7 @@ export type SignupPipelineRow = {
   paymentChannel: string | null;
   registeredAt: string;
   pendingSetupPaymentId: number | null;
+  cafeOrderMode?: string | null;
 };
 
 export type SignupReviewStatus = "pending" | "approved" | "rejected";
@@ -105,6 +106,7 @@ export type TenantListItem = {
   billingHold: boolean;
   isIllustrationTenant: boolean;
   unreadFeedback: number;
+  cafeOrderMode?: string | null;
 };
 
 export type TenantDetail = {
@@ -174,6 +176,7 @@ export type PaymentRow = {
   status: string;
   submittedAt: string;
   hotelDisplayName: string | null;
+  cafeOrderMode?: string | null;
 };
 
 export type TenantUserMonitoringRow = {
@@ -206,6 +209,7 @@ export type ModuleChangeRequestRow = {
   requestedBySide: string;
   requestNote: string | null;
   requestedModules: string[];
+  requestedCafeOrderMode?: string | null;
   createdAt: string;
 };
 
@@ -439,7 +443,7 @@ export async function fetchTenants(search?: string, businessType?: string) {
         apexTenants(search: $search, businessType: $businessType) {
           tinNumber hotelDisplayName businessType accountStatus subscriptionStatus
           setupFeeApproved setupFeeETB quarterlyFeeETB ownerUserName createdAt
-          billingHold isIllustrationTenant unreadFeedback
+          billingHold isIllustrationTenant unreadFeedback cafeOrderMode
         }
       }`,
       { search: search?.trim() || null, businessType: businessType || null },
@@ -483,7 +487,7 @@ export async function fetchPendingPayments(kind?: string) {
       `query($kind: String) {
         apexPendingPayments(kind: $kind) {
           id tinNumber paymentKind amountETB paymentChannel transactionRef
-          status submittedAt hotelDisplayName
+          status submittedAt hotelDisplayName cafeOrderMode
         }
       }`,
       { kind: kind || null },
@@ -782,7 +786,7 @@ export async function fetchModuleChangeRequests(status?: string) {
       `query($status: String) {
         apexModuleChangeRequests(status: $status) {
           id tinNumber hotelDisplayName status requestedBySide requestNote
-          requestedModules createdAt
+          requestedModules requestedCafeOrderMode createdAt
         }
       }`,
       { status: status || null },
@@ -820,6 +824,7 @@ export async function fetchSignupPipeline(limit = 50) {
         apexSignupPipeline(limit: $limit) {
           tinNumber hotelDisplayName businessType ownerUserName setupFeeETB
           paymentTransactionRef paymentChannel registeredAt pendingSetupPaymentId
+          cafeOrderMode
         }
       }`,
       { limit },
@@ -876,6 +881,7 @@ export async function fetchMonthlySignups(): Promise<MonthlySignupRow[]> {
           pendingSetupPaymentId: null,
           status: "approved",
           subscriptionStatus: tenant.subscriptionStatus,
+          cafeOrderMode: tenant.cafeOrderMode ?? pipe?.cafeOrderMode ?? null,
         });
         continue;
       }
@@ -907,6 +913,11 @@ export async function fetchMonthlySignups(): Promise<MonthlySignupRow[]> {
             pipe?.pendingSetupPaymentId ?? pendingPayment?.id ?? null,
           status: "pending",
           subscriptionStatus: tenant.subscriptionStatus,
+          cafeOrderMode:
+            tenant.cafeOrderMode ??
+            pipe?.cafeOrderMode ??
+            pendingPayment?.cafeOrderMode ??
+            null,
         });
         continue;
       }
@@ -965,6 +976,7 @@ export async function fetchMonthlySignups(): Promise<MonthlySignupRow[]> {
           pendingSetupPaymentId: null,
           status,
           subscriptionStatus: tenant.subscriptionStatus,
+          cafeOrderMode: tenant.cafeOrderMode ?? null,
         });
       }),
     );

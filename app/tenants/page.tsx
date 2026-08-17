@@ -20,6 +20,7 @@ import {
   BusinessTypeBadge,
   SubscriptionStatusBadge,
 } from "@/Components/apex/StatusBadge";
+import { CafeOrderModeBadge } from "@/Components/apex/CafeOrderModeBadge";
 import { Badge } from "@/Components/ui/badge";
 import {
   Select,
@@ -226,6 +227,11 @@ function TenantsContent() {
         cell: ({ row }) => (
           <BusinessTypeBadge businessType={row.original.businessType} />
         ),
+      },
+      {
+        id: "cafeOrderMode",
+        header: "Order mode",
+        cell: ({ row }) => <CafeOrderModeBadge mode={row.original.cafeOrderMode} />,
       },
       {
         accessorKey: "tinNumber",
