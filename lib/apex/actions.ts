@@ -373,6 +373,7 @@ function afterBillingMutation() {
 function afterModuleMutation() {
   invalidateApexCaches("apex:summary");
   invalidateApexCaches("apex:modules");
+  invalidateApexCaches("apex:order-mode");
   invalidateApexCaches("apex:tenants");
   invalidateTenantDetailCaches();
 }

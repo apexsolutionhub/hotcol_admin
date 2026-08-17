@@ -241,6 +241,14 @@ export function buildIssueCategories(
       description: "Pending module additions or changes",
     },
     {
+      key: "order-mode",
+      label: "Order mode requests",
+      count: summary.pendingOrderModeRequests,
+      severity: issueSeverity(summary.pendingOrderModeRequests > 0, "warning"),
+      href: "/order-mode",
+      description: "Pending digital vs analog café order mode switches",
+    },
+    {
       key: "users",
       label: "Disabled logins",
       count: summary.disabledUsers,

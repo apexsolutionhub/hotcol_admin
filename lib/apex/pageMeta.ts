@@ -94,6 +94,12 @@ export function getApexPageMeta(
       description: "Pending module enable/disable requests from properties",
     };
   }
+  if (pathname === "/order-mode") {
+    return {
+      title: "Order mode requests",
+      description: "Pending digital vs analog café order mode switches",
+    };
+  }
   if (pathname.startsWith("/feedback/")) {
     return {
       title: "Conversation",
