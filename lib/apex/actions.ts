@@ -1,4 +1,4 @@
-import { apexGraphql } from "./api";
+import { apexGraphql, mapApexApiError } from "./api";
 import {
   invalidateApexListCache,
   readListCache,
@@ -384,16 +384,14 @@ function afterPricingMutation() {
 }
 
 export function mapApexLoginError(error: unknown): string {
-  const raw = error instanceof Error ? error.message : String(error ?? "");
+  const mapped = mapApexApiError(error, "");
+  const raw = (mapped || (error instanceof Error ? error.message : String(error ?? ""))).trim();
   const m = raw.toLowerCase();
   if (m.includes("invalid username or password")) {
     return "Invalid username or password.";
   }
   if (m.includes("pool timeout") || m.includes("failed to retrieve a connection")) {
-    return "Apex API could not open a database connection. Redeploy hotcol-admin-backend and try again.";
-  }
-  if (m.includes("network") || m.includes("cannot reach")) {
-    return "Cannot reach the Apex API. Confirm hotcol-admin-backend is deployed on Vercel.";
+    return "Apex API could not open a database connection. Set DATABASE_URL on hotcol-admin-backend and redeploy.";
   }
   return raw || "Login failed";
 }
