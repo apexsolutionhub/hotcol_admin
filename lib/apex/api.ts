@@ -100,7 +100,19 @@ export function mapApexApiError(error: unknown, fallback = "Request failed"): st
       return `Request timed out (>${APEX_GRAPHQL_TIMEOUT_MS / 1000}s). The Vercel API may still be waking up — try again.`;
     }
     if (!error.response) {
-      return `Cannot reach the Apex API at ${API_URL}. Confirm hotcol-admin-backend is deployed on Vercel.`;
+      return `Cannot reach the Apex API at ${API_URL}. The backend URL is wrong, blocked, or the Vercel function is crashing before it can answer. Open ${API_URL.replace(/\/graphql$/i, "/health")} and confirm DATABASE_URL is set on hotcol-admin-backend.`;
+    }
+    if (error.response.status >= 500) {
+      const bodyMsg = (() => {
+        const data = error.response.data;
+        if (typeof data === "string" && /FUNCTION_INVOCATION_FAILED/i.test(data)) {
+          return "Apex API is deployed but the Vercel function crashed on start. Set DATABASE_URL (and JWT_Secret) on hotcol-admin-backend, then redeploy.";
+        }
+        const gql = data?.errors?.[0]?.message;
+        if (typeof gql === "string" && gql.trim()) return gql.trim();
+        return `Apex API returned HTTP ${error.response.status}. Check Vercel logs for hotcol-admin-backend.`;
+      })();
+      return bodyMsg;
     }
   }
   if (error instanceof Error && error.message) {
