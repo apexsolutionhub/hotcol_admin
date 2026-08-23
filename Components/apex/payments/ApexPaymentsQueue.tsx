@@ -131,6 +131,15 @@ export function ApexPaymentsQueue({ kind }: { kind: PaymentKind }) {
         ),
       },
       {
+        accessorKey: "salesAgentName",
+        header: "Sales agent",
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {row.original.salesAgentName?.trim() || "—"}
+          </span>
+        ),
+      },
+      {
         accessorKey: "amountETB",
         header: "Amount",
         cell: ({ row }) => (

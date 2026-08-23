@@ -14,6 +14,7 @@ import {
 } from "@/Components/signup/SignupModuleSelector";
 import { SignupApexAccessSection } from "@/Components/signup/SignupApexAccessSection";
 import { SignupCafeOrderModeSelector } from "@/Components/signup/SignupCafeOrderModeSelector";
+import { SalesAgentSelector } from "@/Components/signup/SalesAgentSelector";
 import { cafeModuleSelected, type CafeOrderMode } from "@/lib/cafeOrderMode";
 import { PendingButton } from "@/Components/ui/pending-button";
 import { Form, FormField, FormItem, FormLabel, FormMessage } from "@/Components/ui/form";
@@ -39,6 +40,8 @@ import {
 import { uploadSignupImage } from "@/lib/signup/upload";
 import {
   apexCreateTenant,
+  fetchApexSalesAgents,
+  type SalesAgentRow,
   type TenantOnboardingResult,
 } from "@/lib/apex/actions";
 
@@ -78,6 +81,25 @@ export function ApexCreateTenantForm({ onCreated, onNavigateWithoutOwner }: Prop
   const [confirmPaymentReceived, setConfirmPaymentReceived] = useState(true);
   const [isIllustrationTenant, setIsIllustrationTenant] = useState(false);
   const [billingNotes, setBillingNotes] = useState("");
+  const [salesAgents, setSalesAgents] = useState<SalesAgentRow[]>([]);
+  const [salesAgentsLoading, setSalesAgentsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchApexSalesAgents(true)
+      .then((rows) => {
+        if (!cancelled) setSalesAgents(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setSalesAgents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSalesAgentsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const form = useForm<ApexCreateTenantFormValues>({
     resolver: zodResolver(ApexCreateTenantSchema),
@@ -90,6 +112,7 @@ export function ApexCreateTenantForm({ onCreated, onNavigateWithoutOwner }: Prop
       type: "Cafe and Restaurant",
       modules: [...SIGNUP_REQUIRED_MODULES_CAFE],
       cafeOrderMode: "digital",
+      salesAgentId: null,
     },
   });
 
@@ -141,6 +164,7 @@ export function ApexCreateTenantForm({ onCreated, onNavigateWithoutOwner }: Prop
               cafeOrderMode: cafeModuleSelected(modules)
                 ? ((values.cafeOrderMode as CafeOrderMode) || "digital")
                 : "digital",
+              salesAgentId: values.salesAgentId ?? null,
             });
 
             toast.success(
@@ -192,6 +216,25 @@ export function ApexCreateTenantForm({ onCreated, onNavigateWithoutOwner }: Prop
                   value={field.value as BusinessType}
                   onChange={field.onChange}
                 />
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="salesAgentId"
+            render={({ field }) => (
+              <FormItem className="space-y-2">
+                <FormLabel>Sales agent (optional)</FormLabel>
+                <SalesAgentSelector
+                  value={field.value ?? null}
+                  onChange={field.onChange}
+                  agents={salesAgents}
+                  loading={salesAgentsLoading}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave unselected if the customer found HotCol on their own.
+                </p>
                 <FormMessage />
               </FormItem>
             )}

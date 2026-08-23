@@ -39,6 +39,8 @@ export type SignupPipelineRow = {
   registeredAt: string;
   pendingSetupPaymentId: number | null;
   cafeOrderMode?: string | null;
+  salesAgentId?: number | null;
+  salesAgentName?: string | null;
 };
 
 export type SignupReviewStatus = "pending" | "approved" | "rejected";
@@ -107,6 +109,8 @@ export type TenantListItem = {
   isIllustrationTenant: boolean;
   unreadFeedback: number;
   cafeOrderMode?: string | null;
+  salesAgentId?: number | null;
+  salesAgentName?: string | null;
 };
 
 export type TenantDetail = {
@@ -164,6 +168,8 @@ export type TenantDetail = {
   };
   cafeOrderMode: string;
   cafeOrderModeHistory: { mode: string; effectiveFrom: string; effectiveTo: string | null }[];
+  salesAgentId?: number | null;
+  salesAgentName?: string | null;
 };
 
 export type PaymentRow = {
@@ -177,6 +183,8 @@ export type PaymentRow = {
   submittedAt: string;
   hotelDisplayName: string | null;
   cafeOrderMode?: string | null;
+  salesAgentId?: number | null;
+  salesAgentName?: string | null;
 };
 
 export type TenantUserMonitoringRow = {
@@ -294,6 +302,19 @@ export type ApexCreateTenantInput = {
   isIllustrationTenant?: boolean;
   billingNotes?: string | null;
   cafeOrderMode?: string | null;
+  salesAgentId?: number | null;
+};
+
+export type SalesAgentRow = {
+  id: number;
+  displayName: string;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  tenantCount: number;
 };
 
 export type ApexCreateTenantOwnerInput = {
@@ -444,6 +465,7 @@ export async function fetchTenants(search?: string, businessType?: string) {
           tinNumber hotelDisplayName businessType accountStatus subscriptionStatus
           setupFeeApproved setupFeeETB quarterlyFeeETB ownerUserName createdAt
           billingHold isIllustrationTenant unreadFeedback cafeOrderMode
+          salesAgentId salesAgentName
         }
       }`,
       { search: search?.trim() || null, businessType: businessType || null },
@@ -472,6 +494,7 @@ export async function fetchTenantDetail(tinNumber: string) {
           pendingPurchaseRequests pendingStockOutRequests pendingItemRegistrations
         }
         cafeOrderMode cafeOrderModeHistory
+        salesAgentId salesAgentName
       }
     }`,
     { tin: tinNumber },
@@ -488,6 +511,7 @@ export async function fetchPendingPayments(kind?: string) {
         apexPendingPayments(kind: $kind) {
           id tinNumber paymentKind amountETB paymentChannel transactionRef
           status submittedAt hotelDisplayName cafeOrderMode
+          salesAgentId salesAgentName
         }
       }`,
       { kind: kind || null },
@@ -824,7 +848,7 @@ export async function fetchSignupPipeline(limit = 50) {
         apexSignupPipeline(limit: $limit) {
           tinNumber hotelDisplayName businessType ownerUserName setupFeeETB
           paymentTransactionRef paymentChannel registeredAt pendingSetupPaymentId
-          cafeOrderMode
+          cafeOrderMode salesAgentId salesAgentName
         }
       }`,
       { limit },
@@ -882,6 +906,11 @@ export async function fetchMonthlySignups(): Promise<MonthlySignupRow[]> {
           status: "approved",
           subscriptionStatus: tenant.subscriptionStatus,
           cafeOrderMode: tenant.cafeOrderMode ?? pipe?.cafeOrderMode ?? null,
+          salesAgentName:
+            tenant.salesAgentName ??
+            pipe?.salesAgentName ??
+            pendingPayment?.salesAgentName ??
+            null,
         });
         continue;
       }
@@ -917,6 +946,11 @@ export async function fetchMonthlySignups(): Promise<MonthlySignupRow[]> {
             tenant.cafeOrderMode ??
             pipe?.cafeOrderMode ??
             pendingPayment?.cafeOrderMode ??
+            null,
+          salesAgentName:
+            tenant.salesAgentName ??
+            pipe?.salesAgentName ??
+            pendingPayment?.salesAgentName ??
             null,
         });
         continue;
@@ -977,6 +1011,7 @@ export async function fetchMonthlySignups(): Promise<MonthlySignupRow[]> {
           status,
           subscriptionStatus: tenant.subscriptionStatus,
           cafeOrderMode: tenant.cafeOrderMode ?? null,
+          salesAgentName: tenant.salesAgentName ?? null,
         });
       }),
     );
@@ -1226,6 +1261,77 @@ export async function fetchSignupPricingPreview(
   return data.apexSignupPricingPreview;
 }
 
+const SALES_AGENT_FIELDS = `
+  id displayName phone email city notes isActive createdAt tenantCount
+`;
+
+export async function fetchApexSalesAgents(activeOnly = false) {
+  const key = `apex:sales-agents:${activeOnly ? "active" : "all"}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexSalesAgents: SalesAgentRow[] }>(
+      `query($activeOnly: Boolean) {
+        apexSalesAgents(activeOnly: $activeOnly) { ${SALES_AGENT_FIELDS} }
+      }`,
+      { activeOnly },
+    );
+    return data.apexSalesAgents;
+  });
+}
+
+export async function fetchPublicSalesAgents() {
+  const data = await apexGraphql<{ salesAgents: SalesAgentRow[] }>(`
+    query { salesAgents(activeOnly: true) { ${SALES_AGENT_FIELDS} } }
+  `);
+  return data.salesAgents;
+}
+
+export async function upsertSalesAgent(input: {
+  id?: number;
+  displayName: string;
+  phone?: string | null;
+  email?: string | null;
+  city?: string | null;
+  notes?: string | null;
+  isActive?: boolean;
+}): Promise<SalesAgentRow> {
+  const data = await apexGraphql<{ upsertSalesAgent: SalesAgentRow }>(
+    `mutation($id: Int, $displayName: String!, $phone: String, $email: String, $city: String, $notes: String, $isActive: Boolean) {
+      upsertSalesAgent(id: $id, displayName: $displayName, phone: $phone, email: $email, city: $city, notes: $notes, isActive: $isActive) {
+        ${SALES_AGENT_FIELDS}
+      }
+    }`,
+    {
+      id: input.id ?? null,
+      displayName: input.displayName.trim(),
+      phone: input.phone?.trim() || null,
+      email: input.email?.trim() || null,
+      city: input.city?.trim() || null,
+      notes: input.notes?.trim() || null,
+      isActive: input.isActive ?? true,
+    },
+  );
+  invalidateApexCaches("apex:sales-agents");
+  return data.upsertSalesAgent;
+}
+
+export async function setSalesAgentActive(id: number, isActive: boolean) {
+  await apexGraphql(
+    `mutation($id: Int!, $isActive: Boolean!) {
+      setSalesAgentActive(id: $id, isActive: $isActive)
+    }`,
+    { id, isActive },
+  );
+  invalidateApexCaches("apex:sales-agents");
+}
+
+export async function deleteSalesAgent(id: number) {
+  await apexGraphql(
+    `mutation($id: Int!) { deleteSalesAgent(id: $id) }`,
+    { id },
+  );
+  invalidateApexCaches("apex:sales-agents");
+}
+
 export async function fetchTenantsWithoutOwner(): Promise<TenantWithoutOwnerRow[]> {
   const data = await apexGraphql<{ apexTenantsWithoutOwner: TenantWithoutOwnerRow[] }>(`
     query {
@@ -1267,6 +1373,7 @@ export async function apexCreateTenant(
       $isIllustrationTenant: Boolean
       $billingNotes: String
       $cafeOrderMode: String
+      $salesAgentId: Int
     ) {
       apexCreateTenant(
         hotelName: $hotelName
@@ -1282,6 +1389,7 @@ export async function apexCreateTenant(
         isIllustrationTenant: $isIllustrationTenant
         billingNotes: $billingNotes
         cafeOrderMode: $cafeOrderMode
+        salesAgentId: $salesAgentId
       ) {
         tinNumber hotelDisplayName ownerUserName ownerRole setupFeeETB setupFeeApproved userId
       }
@@ -1300,6 +1408,7 @@ export async function apexCreateTenant(
       isIllustrationTenant: input.isIllustrationTenant ?? false,
       billingNotes: input.billingNotes ?? null,
       cafeOrderMode: input.cafeOrderMode ?? "digital",
+      salesAgentId: input.salesAgentId ?? null,
     },
   );
   afterOnboardingMutation();

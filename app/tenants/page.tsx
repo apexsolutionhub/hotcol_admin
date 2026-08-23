@@ -270,6 +270,15 @@ function TenantsContent() {
           <span className="text-sm">{row.original.ownerUserName}</span>
         ),
       },
+      {
+        accessorKey: "salesAgentName",
+        header: "Sales agent",
+        cell: ({ row }) => (
+          <span className="text-sm text-muted-foreground">
+            {row.original.salesAgentName?.trim() || "—"}
+          </span>
+        ),
+      },
     ],
     [],
   );

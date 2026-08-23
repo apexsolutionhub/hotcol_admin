@@ -129,6 +129,12 @@ export function ApexTenantSummaryStrip({ tenant }: { tenant: TenantDetail }) {
             <p className="mt-0.5 text-sm font-semibold text-foreground">
               {tenant.ownerUserName || "—"}
             </p>
+            <p className="mt-2 text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              Sales agent
+            </p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {tenant.salesAgentName?.trim() || "—"}
+            </p>
           </div>
         </div>
 

@@ -88,6 +88,12 @@ export function getApexPageMeta(
       description: "Registrations awaiting setup fee approval",
     };
   }
+  if (pathname === "/sales-agents") {
+    return {
+      title: "Sales Agents",
+      description: "Register the field team who close café and hotel deals",
+    };
+  }
   if (pathname === "/modules") {
     return {
       title: "Module requests",
