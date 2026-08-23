@@ -7,6 +7,7 @@ import { PencilLine, Plus, Trash2 } from "lucide-react";
 import { ApexDataTable } from "@/Components/apex/layout/ApexDataTable";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
+import { PhoneInput } from "@/Components/phone-input";
 import { Textarea } from "@/Components/ui/textarea";
 import { Label } from "@/Components/ui/label";
 import { Switch } from "@/Components/ui/switch";
@@ -255,17 +256,20 @@ export function ApexSalesAgentsTable({ agents, onChanged }: Props) {
                   }
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="sa-phone">Phone</Label>
+                <PhoneInput
+                  id="sa-phone"
+                  defaultCountry="ET"
+                  international
+                  countryCallingCodeEditable
+                  value={editor.phone || undefined}
+                  onChange={(v) =>
+                    setEditor({ ...editor, phone: (v as string) || "" })
+                  }
+                />
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="sa-phone">Phone</Label>
-                  <Input
-                    id="sa-phone"
-                    value={editor.phone}
-                    onChange={(e) =>
-                      setEditor({ ...editor, phone: e.target.value })
-                    }
-                  />
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="sa-email">Email</Label>
                   <Input
@@ -277,17 +281,17 @@ export function ApexSalesAgentsTable({ agents, onChanged }: Props) {
                     }
                   />
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="sa-city">City / coverage</Label>
-                <Input
-                  id="sa-city"
-                  placeholder="Addis Ababa, Hawassa, …"
-                  value={editor.city}
-                  onChange={(e) =>
-                    setEditor({ ...editor, city: e.target.value })
-                  }
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="sa-city">City / coverage</Label>
+                  <Input
+                    id="sa-city"
+                    placeholder="Addis Ababa, Hawassa, …"
+                    value={editor.city}
+                    onChange={(e) =>
+                      setEditor({ ...editor, city: e.target.value })
+                    }
+                  />
+                </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="sa-notes">Notes</Label>
