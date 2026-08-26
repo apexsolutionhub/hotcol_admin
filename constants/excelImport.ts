@@ -113,7 +113,7 @@ export const EXCEL_IMPORT_DEFINITIONS: ExcelImportDefinition[] = [
         hint: "YYYY-MM-DD",
       },
       { key: "supplierName", label: "Supplier name", required: true },
-      { key: "supplierPhone", label: "Supplier phone", required: true },
+      { key: "supplierPhone", label: "Supplier phone", required: false },
       { key: "Address", label: "Supplier address", required: true },
       {
         key: "purchaseWithVat",
