@@ -66,8 +66,13 @@ apexApi.interceptors.response.use(
 export async function apexGraphql<T>(
   query: string,
   variables?: Record<string, unknown>,
+  options?: { timeoutMs?: number },
 ): Promise<T> {
-  const response = await apexApi.post(API_URL, { query, variables });
+  const response = await apexApi.post(
+    API_URL,
+    { query, variables },
+    options?.timeoutMs != null ? { timeout: options.timeoutMs } : undefined,
+  );
 
   if (response.data.errors?.length) {
     const msg = String(response.data.errors[0]?.message || "GraphQL error");

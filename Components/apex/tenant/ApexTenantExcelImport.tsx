@@ -81,6 +81,10 @@ const KIND_META: Record<
   },
 };
 
+function isImportApiMissingError(msg: string): boolean {
+  return /Cannot query field|Unknown argument|apexImportTenantExcel/i.test(msg);
+}
+
 function formatDummyCell(value: unknown): string {
   if (typeof value === "boolean") return value ? "TRUE" : "FALSE";
   if (value == null || value === "") return "—";
@@ -204,7 +208,12 @@ export function ApexTenantExcelImport({ tenant }: Props) {
   );
 
   const [busyKind, setBusyKind] = useState<ExcelImportKind | null>(null);
+  const [importProgress, setImportProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
+  const [importApiMissing, setImportApiMissing] = useState(false);
   const fileRefs = useRef<
     Partial<Record<ExcelImportKind, HTMLInputElement | null>>
   >({});
@@ -237,6 +246,7 @@ export function ApexTenantExcelImport({ tenant }: Props) {
     if (!file) return;
     setBusyKind(def.kind);
     setPreview(null);
+    setImportApiMissing(false);
     try {
       const parsed = await parseExcelImportFile(file, def);
       const validated = validateExcelImportRows(def, parsed.rows);
@@ -269,12 +279,18 @@ export function ApexTenantExcelImport({ tenant }: Props) {
       return;
     }
     setBusyKind(preview.kind);
+    setImportProgress({ done: 0, total: preview.rows.length });
     try {
-      const result = await apexImportTenantExcel({
-        tinNumber: tenant.tinNumber,
-        kind: preview.kind,
-        rows: preview.rows,
-      });
+      const result = await apexImportTenantExcel(
+        {
+          tinNumber: tenant.tinNumber,
+          kind: preview.kind,
+          rows: preview.rows,
+        },
+        {
+          onProgress: (done, total) => setImportProgress({ done, total }),
+        },
+      );
       const errCount = result.errors?.length ?? 0;
       if (result.importedCount > 0) {
         toast.success(
@@ -300,15 +316,17 @@ export function ApexTenantExcelImport({ tenant }: Props) {
       }
     } catch (e) {
       const msg = mapApexApiError(e, "Import failed");
-      if (/Cannot query field|Unknown argument|apexImportTenantExcel/i.test(msg)) {
+      if (isImportApiMissingError(msg)) {
+        setImportApiMissing(true);
         toast.error(
-          "Import API is not available yet. Format download and validation still work.",
+          "Import API is not deployed on hotcol-admin-backend yet. Your file is validated and ready — redeploy the backend with apexImportTenantExcel to write rows.",
         );
       } else if (msg) {
         toast.error(msg);
       }
     } finally {
       setBusyKind(null);
+      setImportProgress(null);
     }
   };
 
@@ -661,9 +679,36 @@ export function ApexTenantExcelImport({ tenant }: Props) {
                   ) : (
                     <CheckCircle2 className="h-3.5 w-3.5" />
                   )}
-                  Import into tenant
+                  {busyKind === preview.kind && importProgress ? (
+                    <>
+                      Importing {importProgress.done}/{importProgress.total}
+                      …
+                    </>
+                  ) : (
+                    "Import into tenant"
+                  )}
                 </Button>
               </div>
+
+              {importApiMissing ? (
+                <div className="rounded-xl border border-[oklch(0.75_0.12_75/0.35)] bg-[oklch(0.55_0.05_75/0.12)] px-3.5 py-3">
+                  <p className="text-sm font-semibold text-[oklch(0.92_0.04_75)]">
+                    Import API not deployed
+                  </p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+                    Upload validation succeeded ({preview.rows.length} rows).
+                    Writing to the database needs the{" "}
+                    <span className="font-mono text-xs text-foreground/90">
+                      apexImportTenantExcel
+                    </span>{" "}
+                    mutation on{" "}
+                    <span className="font-medium text-foreground">
+                      hotcol-admin-backend
+                    </span>
+                    . Redeploy GraphQl-BackEnd, then click Import again.
+                  </p>
+                </div>
+              ) : null}
 
               {preview.issues.length > 0 ? (
                 <ul className="max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-white/8 bg-black/25 p-3.5 text-xs leading-relaxed">
