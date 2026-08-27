@@ -314,7 +314,7 @@ export const EXCEL_IMPORT_DEFINITIONS: ExcelImportDefinition[] = [
     kind: "stockout_request",
     title: "Stock-out request",
     description:
-      "Seed stock movements. Matching registrations debit stock; unknown names to non-STORE go to Fresh Bazaar.",
+      "Seed stock movements without changing on-hand qty. Matching names copy price/supplier from registration; unknown non-STORE names go to Fresh Bazaar.",
     requiredModule: "Inventory",
     sheetName: "Stockout_request",
     fileBase: "hotcol-sample-stockout-request",
@@ -329,7 +329,7 @@ export const EXCEL_IMPORT_DEFINITIONS: ExcelImportDefinition[] = [
         key: "itemName",
         label: "Item name",
         required: true,
-        hint: "Must match a registration, or (non-STORE) saves as Fresh Bazaar",
+        hint: "Matches a registration (case-insensitive) to copy price/supplier; else non-STORE → Fresh Bazaar",
       },
       {
         key: "movementType",
