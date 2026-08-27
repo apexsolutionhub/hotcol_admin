@@ -113,6 +113,9 @@ export function mapApexApiError(error: unknown, fallback = "Request failed"): st
         if (typeof data === "string" && /FUNCTION_INVOCATION_FAILED/i.test(data)) {
           return "Apex API is deployed but the Vercel function crashed on start. Set DATABASE_URL (and JWT_Secret) on hotcol-admin-backend, then redeploy.";
         }
+        if (error.response.status === 504) {
+          return "Import batch timed out on the server (HTTP 504). Large stock-out files are sent in small batches — wait for progress and try again if a batch fails.";
+        }
         const gql = data?.errors?.[0]?.message;
         if (typeof gql === "string" && gql.trim()) return gql.trim();
         return `Apex API returned HTTP ${error.response.status}. Check Vercel logs for hotcol-admin-backend.`;

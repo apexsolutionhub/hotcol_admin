@@ -8,11 +8,20 @@ export type ApexExcelImportResult = {
   errors: { row: number; message: string }[];
 };
 
-/** Keep each GraphQL call under Vercel / client timeout limits. */
-const IMPORT_CHUNK_SIZE = 50;
+/**
+ * Stock-out / Fresh Bazaar rows are much heavier per write than item registration.
+ * Keep chunks small so each Vercel invocation finishes before the gateway 504.
+ */
+const IMPORT_CHUNK_SIZE: Record<ExcelImportKind, number> = {
+  item_registration: 40,
+  purchase_request: 40,
+  stockout_request: 8,
+};
 
-/** Per-chunk timeout — large batches can be slow on cold serverless DB. */
-const IMPORT_CHUNK_TIMEOUT_MS = 120_000;
+/** Per-chunk client timeout (Vercel may still 504 earlier on free/pro limits). */
+const IMPORT_CHUNK_TIMEOUT_MS = 90_000;
+
+const MAX_CHUNK_RETRIES = 2;
 
 const IMPORT_MUTATION = `mutation($tin: String!, $kind: String!, $rows: JSON!) {
   apexImportTenantExcel(tinNumber: $tin, kind: $kind, rows: $rows) {
@@ -23,21 +32,54 @@ const IMPORT_MUTATION = `mutation($tin: String!, $kind: String!, $rows: JSON!) {
   }
 }`;
 
+function isRetryableImportError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const ax = error as {
+    code?: string;
+    response?: { status?: number };
+    message?: string;
+  };
+  if (ax.code === "ECONNABORTED") return true;
+  const status = ax.response?.status;
+  if (status === 504 || status === 502 || status === 503) return true;
+  const msg = String(ax.message || "");
+  return /timed out|504|502|503|FUNCTION_INVOCATION_TIMEOUT/i.test(msg);
+}
+
+async function sleep(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function apexImportTenantExcelChunk(input: {
   tinNumber: string;
   kind: ExcelImportKind;
   rows: Record<string, unknown>[];
 }): Promise<ApexExcelImportResult> {
-  const data = await apexGraphql<{ apexImportTenantExcel: ApexExcelImportResult }>(
-    IMPORT_MUTATION,
-    {
-      tin: input.tinNumber,
-      kind: input.kind,
-      rows: input.rows,
-    },
-    { timeoutMs: IMPORT_CHUNK_TIMEOUT_MS },
-  );
-  return data.apexImportTenantExcel;
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= MAX_CHUNK_RETRIES; attempt += 1) {
+    try {
+      const data = await apexGraphql<{
+        apexImportTenantExcel: ApexExcelImportResult;
+      }>(
+        IMPORT_MUTATION,
+        {
+          tin: input.tinNumber,
+          kind: input.kind,
+          rows: input.rows,
+        },
+        { timeoutMs: IMPORT_CHUNK_TIMEOUT_MS },
+      );
+      return data.apexImportTenantExcel;
+    } catch (error) {
+      lastError = error;
+      if (attempt < MAX_CHUNK_RETRIES && isRetryableImportError(error)) {
+        await sleep(1500 * (attempt + 1));
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError;
 }
 
 /**
@@ -58,10 +100,14 @@ export async function apexImportTenantExcel(
 ): Promise<ApexExcelImportResult> {
   const { tinNumber, kind, rows } = input;
   const total = rows.length;
+  const chunkSize = IMPORT_CHUNK_SIZE[kind] ?? 25;
 
-  if (total <= IMPORT_CHUNK_SIZE) {
+  if (total <= chunkSize) {
     const result = await apexImportTenantExcelChunk({ tinNumber, kind, rows });
-    options?.onProgress?.(result.importedCount, total);
+    options?.onProgress?.(
+      result.importedCount + (result.errors?.length ?? 0),
+      total,
+    );
     return result;
   }
 
@@ -69,8 +115,8 @@ export async function apexImportTenantExcel(
   let skippedCount = 0;
   const errors: { row: number; message: string }[] = [];
 
-  for (let start = 0; start < total; start += IMPORT_CHUNK_SIZE) {
-    const chunk = rows.slice(start, start + IMPORT_CHUNK_SIZE);
+  for (let start = 0; start < total; start += chunkSize) {
+    const chunk = rows.slice(start, start + chunkSize);
     const result = await apexImportTenantExcelChunk({
       tinNumber,
       kind,
@@ -88,9 +134,10 @@ export async function apexImportTenantExcel(
     options?.onProgress?.(Math.min(start + chunk.length, total), total);
   }
 
+  const batchCount = Math.ceil(total / chunkSize);
   const message =
     errors.length === 0
-      ? `Imported ${importedCount} row(s) in ${Math.ceil(total / IMPORT_CHUNK_SIZE)} batch(es).`
+      ? `Imported ${importedCount} row(s) in ${batchCount} batch(es).`
       : `Imported ${importedCount} of ${total} row(s); ${errors.length} failed.`;
 
   return {
