@@ -317,6 +317,16 @@ export type SalesAgentRow = {
   tenantCount: number;
 };
 
+export type CrystalNameRow = {
+  id: number;
+  amharic: string;
+  romanized: string;
+  english: string;
+  crystalLabel: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type ApexCreateTenantOwnerInput = {
   tinNumber: string;
   userName: string;
@@ -1330,6 +1340,55 @@ export async function deleteSalesAgent(id: number) {
     { id },
   );
   invalidateApexCaches("apex:sales-agents");
+}
+
+const CRYSTAL_NAME_FIELDS = `
+  id amharic romanized english crystalLabel createdAt updatedAt
+`;
+
+export async function fetchApexCrystalNames(search?: string) {
+  const q = String(search || "").trim();
+  const key = `apex:crystal-names:${q || "all"}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{ apexCrystalNames: CrystalNameRow[] }>(
+      `query($search: String, $take: Int) {
+        apexCrystalNames(search: $search, take: $take) { ${CRYSTAL_NAME_FIELDS} }
+      }`,
+      { search: q || null, take: 2000 },
+    );
+    return data.apexCrystalNames;
+  });
+}
+
+export async function upsertCrystalName(input: {
+  id?: number;
+  amharic: string;
+  romanized: string;
+  english: string;
+}): Promise<CrystalNameRow> {
+  const data = await apexGraphql<{ upsertCrystalName: CrystalNameRow }>(
+    `mutation($id: Int, $amharic: String!, $romanized: String!, $english: String!) {
+      upsertCrystalName(id: $id, amharic: $amharic, romanized: $romanized, english: $english) {
+        ${CRYSTAL_NAME_FIELDS}
+      }
+    }`,
+    {
+      id: input.id ?? null,
+      amharic: input.amharic.trim(),
+      romanized: input.romanized.trim(),
+      english: input.english.trim(),
+    },
+  );
+  invalidateApexCaches("apex:crystal-names");
+  return data.upsertCrystalName;
+}
+
+export async function deleteCrystalName(id: number) {
+  await apexGraphql(
+    `mutation($id: Int!) { deleteCrystalName(id: $id) }`,
+    { id },
+  );
+  invalidateApexCaches("apex:crystal-names");
 }
 
 export async function fetchTenantsWithoutOwner(): Promise<TenantWithoutOwnerRow[]> {

@@ -4,6 +4,7 @@ import {
   Building2,
   CreditCard,
   FileText,
+  Languages,
   LayoutDashboard,
   MessageCircle,
   Printer,
@@ -72,6 +73,12 @@ export const APEX_MONITORING_NAV: ApexNavItem[] = [
     href: "/sales-agents",
     label: "Sales Agents",
     icon: Handshake,
+  },
+  {
+    id: "crystal-names",
+    href: "/crystal-names",
+    label: "Crystal names",
+    icon: Languages,
   },
   {
     id: "modules",
