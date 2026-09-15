@@ -25,6 +25,7 @@ type Props = {
   busy: boolean;
   onSaveModules: (modules: string[], recalcFees: boolean) => void;
   onSyncStaff: () => void;
+  onSetWaiterOrderingEnabled: (enabled: boolean) => void;
 };
 
 export function ApexTenantModulesEditor({
@@ -32,6 +33,7 @@ export function ApexTenantModulesEditor({
   busy,
   onSaveModules,
   onSyncStaff,
+  onSetWaiterOrderingEnabled,
 }: Props) {
   const initial = useMemo(
     () => new Set((tenant.modules as string[]) ?? []),
@@ -39,6 +41,8 @@ export function ApexTenantModulesEditor({
   );
   const [selected, setSelected] = useState<Set<string>>(initial);
   const [recalcOnSave, setRecalcOnSave] = useState(!tenant.feesManuallySet);
+  const cafeSelected =
+    selected.has("Cafe and Restaurant") || cafeModuleSelected(tenant.modules);
 
   const toggle = (mod: string, checked: boolean) => {
     setSelected((prev) => {
@@ -109,6 +113,26 @@ export function ApexTenantModulesEditor({
             <p className="text-sm text-muted-foreground">Current cafe order mode</p>
             <CafeOrderModeBadge mode={tenant.cafeOrderMode} />
           </div>
+        ) : null}
+
+        {cafeSelected ? (
+          <label
+            htmlFor="waiter-ordering-enabled"
+            className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/3 px-4 py-3"
+          >
+            <div>
+              <p className="text-sm font-medium">Waiter ordering</p>
+              <p className="text-xs text-muted-foreground">
+                Permit HotCol Waiter portal login and ordering for this property
+              </p>
+            </div>
+            <Switch
+              id="waiter-ordering-enabled"
+              checked={Boolean(tenant.waiterOrderingEnabled)}
+              disabled={busy || !cafeModuleSelected(tenant.modules)}
+              onCheckedChange={(v) => onSetWaiterOrderingEnabled(Boolean(v))}
+            />
+          </label>
         ) : null}
 
         {tenant.feesManuallySet ? (

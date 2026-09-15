@@ -24,6 +24,7 @@ import {
   updateTenantBilling,
   updateTenantModules,
   syncTenantStaffModules,
+  setTenantWaiterOrderingEnabled,
   type TenantDetail,
 } from "@/lib/apex/actions";
 import { Button } from "@/Components/ui/button";
@@ -186,13 +187,16 @@ export default function TenantDetailPage() {
 
         {tab === "modules" ? (
           <ApexTenantModulesEditor
-            key={`modules-${tenant.tinNumber}-${(tenant.modules as string[]).join(",")}`}
+            key={`modules-${tenant.tinNumber}-${(tenant.modules as string[]).join(",")}-${tenant.waiterOrderingEnabled}`}
             tenant={tenant}
             busy={busy}
             onSaveModules={(modules, recalcFees) =>
               run(() => updateTenantModules(tin, modules, recalcFees))
             }
             onSyncStaff={() => run(() => syncTenantStaffModules(tin))}
+            onSetWaiterOrderingEnabled={(enabled) =>
+              run(() => setTenantWaiterOrderingEnabled(tin, enabled))
+            }
           />
         ) : null}
 

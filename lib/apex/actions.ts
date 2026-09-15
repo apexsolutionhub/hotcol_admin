@@ -168,6 +168,7 @@ export type TenantDetail = {
   };
   cafeOrderMode: string;
   cafeOrderModeHistory: { mode: string; effectiveFrom: string; effectiveTo: string | null }[];
+  waiterOrderingEnabled: boolean;
   salesAgentId?: number | null;
   salesAgentName?: string | null;
 };
@@ -504,6 +505,7 @@ export async function fetchTenantDetail(tinNumber: string) {
           pendingPurchaseRequests pendingStockOutRequests pendingItemRegistrations
         }
         cafeOrderMode cafeOrderModeHistory
+        waiterOrderingEnabled
         salesAgentId salesAgentName
       }
     }`,
@@ -1248,6 +1250,19 @@ export async function updateTenantCafeOrderMode(tinNumber: string, cafeOrderMode
       updateTenantCafeOrderMode(tinNumber: $tin, cafeOrderMode: $mode)
     }`,
     { tin: tinNumber, mode: cafeOrderMode },
+  );
+  afterModuleMutation();
+}
+
+export async function setTenantWaiterOrderingEnabled(
+  tinNumber: string,
+  enabled: boolean,
+) {
+  await apexGraphql(
+    `mutation($tin: String!, $enabled: Boolean!) {
+      setTenantWaiterOrderingEnabled(tinNumber: $tin, enabled: $enabled)
+    }`,
+    { tin: tinNumber, enabled },
   );
   afterModuleMutation();
 }
