@@ -1391,6 +1391,105 @@ export async function deleteCrystalName(id: number) {
   invalidateApexCaches("apex:crystal-names");
 }
 
+export type CrystalNameProposalRow = {
+  id: number;
+  rawText: string;
+  amharic: string;
+  romanized: string;
+  english: string;
+  crystalLabel: string;
+  status: string;
+  source: string;
+  HotelName: string | null;
+  tinNumber: string | null;
+  proposedBy: string | null;
+  mergedIntoId: number | null;
+  reviewNote: string | null;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+const CRYSTAL_PROPOSAL_FIELDS = `
+  id rawText amharic romanized english crystalLabel status source
+  HotelName tinNumber proposedBy mergedIntoId reviewNote reviewedBy reviewedAt
+  createdAt updatedAt
+`;
+
+export async function fetchApexCrystalNameProposals(status = "pending") {
+  const key = `apex:crystal-proposals:${status}`;
+  return dedupeApexRead(key, async () => {
+    const data = await apexGraphql<{
+      apexCrystalNameProposals: CrystalNameProposalRow[];
+    }>(
+      `query($status: String, $take: Int) {
+        apexCrystalNameProposals(status: $status, take: $take) {
+          ${CRYSTAL_PROPOSAL_FIELDS}
+        }
+      }`,
+      { status, take: 200 },
+    );
+    return data.apexCrystalNameProposals;
+  });
+}
+
+export async function approveCrystalNameProposal(id: number) {
+  const data = await apexGraphql<{
+    approveCrystalNameProposal: {
+      proposal: CrystalNameProposalRow;
+      crystal: CrystalNameRow | null;
+    };
+  }>(
+    `mutation($id: Int!) {
+      approveCrystalNameProposal(id: $id) {
+        proposal { ${CRYSTAL_PROPOSAL_FIELDS} }
+        crystal { ${CRYSTAL_NAME_FIELDS} }
+      }
+    }`,
+    { id },
+  );
+  invalidateApexCaches("apex:crystal");
+  return data.approveCrystalNameProposal;
+}
+
+export async function mergeCrystalNameProposal(
+  id: number,
+  targetCrystalNameId: number,
+) {
+  const data = await apexGraphql<{
+    mergeCrystalNameProposal: {
+      proposal: CrystalNameProposalRow;
+      crystal: CrystalNameRow | null;
+    };
+  }>(
+    `mutation($id: Int!, $targetCrystalNameId: Int!) {
+      mergeCrystalNameProposal(id: $id, targetCrystalNameId: $targetCrystalNameId) {
+        proposal { ${CRYSTAL_PROPOSAL_FIELDS} }
+        crystal { ${CRYSTAL_NAME_FIELDS} }
+      }
+    }`,
+    { id, targetCrystalNameId },
+  );
+  invalidateApexCaches("apex:crystal");
+  return data.mergeCrystalNameProposal;
+}
+
+export async function rejectCrystalNameProposal(id: number, reason?: string) {
+  const data = await apexGraphql<{
+    rejectCrystalNameProposal: CrystalNameProposalRow;
+  }>(
+    `mutation($id: Int!, $reason: String) {
+      rejectCrystalNameProposal(id: $id, reason: $reason) {
+        ${CRYSTAL_PROPOSAL_FIELDS}
+      }
+    }`,
+    { id, reason: reason?.trim() || null },
+  );
+  invalidateApexCaches("apex:crystal");
+  return data.rejectCrystalNameProposal;
+}
+
 export async function fetchTenantsWithoutOwner(): Promise<TenantWithoutOwnerRow[]> {
   const data = await apexGraphql<{ apexTenantsWithoutOwner: TenantWithoutOwnerRow[] }>(`
     query {
