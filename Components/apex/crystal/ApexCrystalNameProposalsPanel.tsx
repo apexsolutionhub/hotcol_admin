@@ -6,6 +6,15 @@ import { CheckCheck, GitMerge, Trash2 } from "lucide-react";
 import { ApexCrystalNameSelector } from "@/Components/apex/crystal/ApexCrystalNameSelector";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/Components/ui/dialog";
 import {
   approveCrystalNameProposal,
   mergeCrystalNameProposal,
@@ -20,6 +29,12 @@ type Props = {
   onChanged: () => void;
 };
 
+function hasFullTriple(p: CrystalNameProposalRow) {
+  return Boolean(
+    p.amharic?.trim() && p.romanized?.trim() && p.english?.trim(),
+  );
+}
+
 export function ApexCrystalNameProposalsPanel({
   proposals,
   catalog,
@@ -32,11 +47,56 @@ export function ApexCrystalNameProposalsPanel({
   const [rejectNoteById, setRejectNoteById] = useState<Record<number, string>>(
     {},
   );
+  const [approveTarget, setApproveTarget] =
+    useState<CrystalNameProposalRow | null>(null);
+  const [approveDraft, setApproveDraft] = useState({
+    amharic: "",
+    romanized: "",
+    english: "",
+  });
+  const [approving, setApproving] = useState(false);
 
   const pending = useMemo(
     () => proposals.filter((p) => p.status === "pending"),
     [proposals],
   );
+
+  const openApprove = (p: CrystalNameProposalRow) => {
+    setApproveTarget(p);
+    setApproveDraft({
+      amharic: p.amharic?.trim() || "",
+      romanized: p.romanized?.trim() || "",
+      english: p.english?.trim() || "",
+    });
+  };
+
+  const confirmApprove = async () => {
+    if (!approveTarget) return;
+    const amharic = approveDraft.amharic.trim();
+    const romanized = approveDraft.romanized.trim();
+    const english = approveDraft.english.trim();
+    if (!amharic || !romanized || !english) {
+      toast.error("Amharic, romanized, and English are required to approve");
+      return;
+    }
+    setApproving(true);
+    setBusyId(approveTarget.id);
+    try {
+      await approveCrystalNameProposal(approveTarget.id, {
+        amharic,
+        romanized,
+        english,
+      });
+      toast.success("Approved as new crystal name");
+      setApproveTarget(null);
+      onChanged();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Approve failed");
+    } finally {
+      setApproving(false);
+      setBusyId(null);
+    }
+  };
 
   if (pending.length === 0) {
     return (
@@ -56,9 +116,9 @@ export function ApexCrystalNameProposalsPanel({
           Pending proposals ({pending.length})
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Naming only — does not block property registration, purchase
-          authorize/approve, or cafe status. Use the crystal selector to merge
-          into an existing name, or approve as a new catalog entry.
+          Naming only — does not block property workflows. Staff may send typed
+          text only; complete Amharic|Romanized|English when approving as new,
+          or merge via the selector.
         </p>
       </div>
 
@@ -66,6 +126,7 @@ export function ApexCrystalNameProposalsPanel({
         {pending.map((p) => {
           const targetId = mergeTargetById[p.id] ?? null;
           const busy = busyId === p.id;
+          const complete = hasFullTriple(p);
           return (
             <li
               key={p.id}
@@ -74,10 +135,21 @@ export function ApexCrystalNameProposalsPanel({
               <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                 <div className="min-w-0 space-y-1">
                   <p className="font-medium">
-                    {p.amharic} / {p.romanized}
-                    <span className="ml-2 text-sm font-normal text-muted-foreground">
-                      {p.english}
-                    </span>
+                    {complete ? (
+                      <>
+                        {p.amharic} / {p.romanized}
+                        <span className="ml-2 text-sm font-normal text-muted-foreground">
+                          {p.english}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-amber-200">Needs languages</span>
+                        <span className="ml-2 text-sm font-normal text-foreground">
+                          {p.rawText}
+                        </span>
+                      </>
+                    )}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Typed: <code className="text-foreground">{p.rawText}</code>
@@ -95,13 +167,11 @@ export function ApexCrystalNameProposalsPanel({
                     {p.proposedBy ? (
                       <>
                         {" · "}
-                        by <span className="text-foreground">{p.proposedBy}</span>
+                        by{" "}
+                        <span className="text-foreground">{p.proposedBy}</span>
                       </>
                     ) : null}
                   </p>
-                  <code className="block text-[11px] text-muted-foreground">
-                    {p.crystalLabel}
-                  </code>
                 </div>
 
                 <div className="flex shrink-0 flex-wrap gap-2">
@@ -110,22 +180,7 @@ export function ApexCrystalNameProposalsPanel({
                     size="sm"
                     variant="secondary"
                     disabled={busy}
-                    onClick={() =>
-                      void (async () => {
-                        setBusyId(p.id);
-                        try {
-                          await approveCrystalNameProposal(p.id);
-                          toast.success("Approved as new crystal name");
-                          onChanged();
-                        } catch (e) {
-                          toast.error(
-                            e instanceof Error ? e.message : "Approve failed",
-                          );
-                        } finally {
-                          setBusyId(null);
-                        }
-                      })()
-                    }
+                    onClick={() => openApprove(p)}
                   >
                     <CheckCheck className="mr-1.5 h-4 w-4" />
                     Approve as new
@@ -227,6 +282,76 @@ export function ApexCrystalNameProposalsPanel({
           );
         })}
       </ul>
+
+      <Dialog
+        open={approveTarget != null}
+        onOpenChange={(open) => !open && setApproveTarget(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Approve as new crystal</DialogTitle>
+            <DialogDescription>
+              Typed by property:{" "}
+              <span className="font-medium text-foreground">
+                {approveTarget?.rawText}
+              </span>
+              . Set the three language segments for the catalog.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="approve-am">Amharic</Label>
+              <Input
+                id="approve-am"
+                value={approveDraft.amharic}
+                onChange={(e) =>
+                  setApproveDraft((d) => ({ ...d, amharic: e.target.value }))
+                }
+                placeholder="ዳቦ"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="approve-rom">Romanized</Label>
+              <Input
+                id="approve-rom"
+                value={approveDraft.romanized}
+                onChange={(e) =>
+                  setApproveDraft((d) => ({ ...d, romanized: e.target.value }))
+                }
+                placeholder="Dabo"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="approve-en">English</Label>
+              <Input
+                id="approve-en"
+                value={approveDraft.english}
+                onChange={(e) =>
+                  setApproveDraft((d) => ({ ...d, english: e.target.value }))
+                }
+                placeholder="Bread"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={approving}
+              onClick={() => setApproveTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={approving}
+              onClick={() => void confirmApprove()}
+            >
+              {approving ? "Saving…" : "Approve into catalog"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

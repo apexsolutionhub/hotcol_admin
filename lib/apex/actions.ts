@@ -1434,20 +1434,28 @@ export async function fetchApexCrystalNameProposals(status = "pending") {
   });
 }
 
-export async function approveCrystalNameProposal(id: number) {
+export async function approveCrystalNameProposal(
+  id: number,
+  triple?: { amharic?: string; romanized?: string; english?: string },
+) {
   const data = await apexGraphql<{
     approveCrystalNameProposal: {
       proposal: CrystalNameProposalRow;
       crystal: CrystalNameRow | null;
     };
   }>(
-    `mutation($id: Int!) {
-      approveCrystalNameProposal(id: $id) {
+    `mutation($id: Int!, $amharic: String, $romanized: String, $english: String) {
+      approveCrystalNameProposal(id: $id, amharic: $amharic, romanized: $romanized, english: $english) {
         proposal { ${CRYSTAL_PROPOSAL_FIELDS} }
         crystal { ${CRYSTAL_NAME_FIELDS} }
       }
     }`,
-    { id },
+    {
+      id,
+      amharic: triple?.amharic?.trim() || null,
+      romanized: triple?.romanized?.trim() || null,
+      english: triple?.english?.trim() || null,
+    },
   );
   invalidateApexCaches("apex:crystal");
   return data.approveCrystalNameProposal;
