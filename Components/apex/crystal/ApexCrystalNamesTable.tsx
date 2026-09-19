@@ -180,6 +180,8 @@ export function ApexCrystalNamesTable({ rows, onChanged }: Props) {
         columns={columns}
         data={rows}
         noun="crystal names"
+        showToolbar
+        searchPlaceholder="Search Amharic, romanized, or English…"
         emptyState={
           <p className="px-6 py-10 text-center text-sm text-muted-foreground">
             No crystal names yet. Add Amharic|Romanized|English triples for
