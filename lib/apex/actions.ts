@@ -1513,6 +1513,22 @@ export async function rejectCrystalNameProposal(id: number, reason?: string) {
   return data.rejectCrystalNameProposal;
 }
 
+/** Re-apply approved/merged crystal labels onto inventory & request rows. */
+export async function repairCrystalNamePropagations(take = 200) {
+  const data = await apexGraphql<{
+    repairCrystalNamePropagations: { processed: number; updated: number };
+  }>(
+    `mutation($take: Int) {
+      repairCrystalNamePropagations(take: $take) {
+        processed
+        updated
+      }
+    }`,
+    { take },
+  );
+  return data.repairCrystalNamePropagations;
+}
+
 export async function fetchTenantsWithoutOwner(): Promise<TenantWithoutOwnerRow[]> {
   const data = await apexGraphql<{ apexTenantsWithoutOwner: TenantWithoutOwnerRow[] }>(`
     query {

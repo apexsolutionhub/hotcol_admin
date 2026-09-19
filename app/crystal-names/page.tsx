@@ -9,6 +9,7 @@ import { ApexCrystalNameProposalsPanel } from "@/Components/apex/crystal/ApexCry
 import {
   fetchApexCrystalNameProposals,
   fetchApexCrystalNames,
+  repairCrystalNamePropagations,
   type CrystalNameProposalRow,
   type CrystalNameRow,
 } from "@/lib/apex/actions";
@@ -21,6 +22,19 @@ export default function CrystalNamesPage() {
 
   const reload = useCallback(async () => {
     try {
+      // Fix any inventory/request rows still using provisional names from
+      // already-approved/merged proposals (e.g. "new thing" → full crystal).
+      try {
+        const repair = await repairCrystalNamePropagations(200);
+        if (repair.updated > 0) {
+          toast.success(
+            `Updated ${repair.updated} item name${repair.updated === 1 ? "" : "s"} to approved crystal labels`,
+          );
+        }
+      } catch {
+        // Non-fatal — catalog still loads.
+      }
+
       const [catalog, pending] = await Promise.all([
         fetchApexCrystalNames(),
         fetchApexCrystalNameProposals("pending"),
