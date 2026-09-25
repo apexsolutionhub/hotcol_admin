@@ -25,6 +25,8 @@ import {
   updateTenantModules,
   syncTenantStaffModules,
   setTenantWaiterOrderingEnabled,
+  setTenantHrSoloManagerEnabled,
+  setTenantHrBiometricsEnabled,
   type TenantDetail,
 } from "@/lib/apex/actions";
 import { Button } from "@/Components/ui/button";
@@ -187,7 +189,7 @@ export default function TenantDetailPage() {
 
         {tab === "modules" ? (
           <ApexTenantModulesEditor
-            key={`modules-${tenant.tinNumber}-${(tenant.modules as string[]).join(",")}-${tenant.waiterOrderingEnabled}`}
+            key={`modules-${tenant.tinNumber}-${(tenant.modules as string[]).join(",")}-${tenant.waiterOrderingEnabled}-${tenant.hrSoloManagerEnabled}-${tenant.hrBiometricsEnabled}`}
             tenant={tenant}
             busy={busy}
             onSaveModules={(modules, recalcFees) =>
@@ -196,6 +198,12 @@ export default function TenantDetailPage() {
             onSyncStaff={() => run(() => syncTenantStaffModules(tin))}
             onSetWaiterOrderingEnabled={(enabled) =>
               run(() => setTenantWaiterOrderingEnabled(tin, enabled))
+            }
+            onSetHrSoloManagerEnabled={(enabled) =>
+              run(() => setTenantHrSoloManagerEnabled(tin, enabled))
+            }
+            onSetHrBiometricsEnabled={(enabled) =>
+              run(() => setTenantHrBiometricsEnabled(tin, enabled))
             }
           />
         ) : null}

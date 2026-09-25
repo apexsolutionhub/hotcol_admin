@@ -26,6 +26,8 @@ type Props = {
   onSaveModules: (modules: string[], recalcFees: boolean) => void;
   onSyncStaff: () => void;
   onSetWaiterOrderingEnabled: (enabled: boolean) => void;
+  onSetHrSoloManagerEnabled: (enabled: boolean) => void;
+  onSetHrBiometricsEnabled: (enabled: boolean) => void;
 };
 
 export function ApexTenantModulesEditor({
@@ -34,6 +36,8 @@ export function ApexTenantModulesEditor({
   onSaveModules,
   onSyncStaff,
   onSetWaiterOrderingEnabled,
+  onSetHrSoloManagerEnabled,
+  onSetHrBiometricsEnabled,
 }: Props) {
   const initial = useMemo(
     () => new Set((tenant.modules as string[]) ?? []),
@@ -43,6 +47,7 @@ export function ApexTenantModulesEditor({
   const [recalcOnSave, setRecalcOnSave] = useState(!tenant.feesManuallySet);
   const cafeSelected =
     selected.has("Cafe and Restaurant") || cafeModuleSelected(tenant.modules);
+  const hrSelected = selected.has("HR Module");
 
   const toggle = (mod: string, checked: boolean) => {
     setSelected((prev) => {
@@ -133,6 +138,45 @@ export function ApexTenantModulesEditor({
               onCheckedChange={(v) => onSetWaiterOrderingEnabled(Boolean(v))}
             />
           </label>
+        ) : null}
+
+        {hrSelected ? (
+          <>
+            <label
+              htmlFor="hr-solo-manager-enabled"
+              className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/3 px-4 py-3"
+            >
+              <div>
+                <p className="text-sm font-medium">Solo HR Manager (café)</p>
+                <p className="text-xs text-muted-foreground">
+                  When on, café HR ops use the HR Manager role instead of Admin hosting
+                </p>
+              </div>
+              <Switch
+                id="hr-solo-manager-enabled"
+                checked={Boolean(tenant.hrSoloManagerEnabled)}
+                disabled={busy || !hrSelected}
+                onCheckedChange={(v) => onSetHrSoloManagerEnabled(Boolean(v))}
+              />
+            </label>
+            <label
+              htmlFor="hr-biometrics-enabled"
+              className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/3 px-4 py-3"
+            >
+              <div>
+                <p className="text-sm font-medium">HR biometrics</p>
+                <p className="text-xs text-muted-foreground">
+                  Enable biometric device sync for attendance; off keeps manual clock only
+                </p>
+              </div>
+              <Switch
+                id="hr-biometrics-enabled"
+                checked={Boolean(tenant.hrBiometricsEnabled)}
+                disabled={busy || !hrSelected}
+                onCheckedChange={(v) => onSetHrBiometricsEnabled(Boolean(v))}
+              />
+            </label>
+          </>
         ) : null}
 
         {tenant.feesManuallySet ? (

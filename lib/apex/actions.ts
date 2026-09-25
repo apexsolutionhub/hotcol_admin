@@ -169,6 +169,8 @@ export type TenantDetail = {
   cafeOrderMode: string;
   cafeOrderModeHistory: { mode: string; effectiveFrom: string; effectiveTo: string | null }[];
   waiterOrderingEnabled: boolean;
+  hrSoloManagerEnabled: boolean;
+  hrBiometricsEnabled: boolean;
   salesAgentId?: number | null;
   salesAgentName?: string | null;
 };
@@ -506,6 +508,8 @@ export async function fetchTenantDetail(tinNumber: string) {
         }
         cafeOrderMode cafeOrderModeHistory
         waiterOrderingEnabled
+        hrSoloManagerEnabled
+        hrBiometricsEnabled
         salesAgentId salesAgentName
       }
     }`,
@@ -1261,6 +1265,32 @@ export async function setTenantWaiterOrderingEnabled(
   await apexGraphql(
     `mutation($tin: String!, $enabled: Boolean!) {
       setTenantWaiterOrderingEnabled(tinNumber: $tin, enabled: $enabled)
+    }`,
+    { tin: tinNumber, enabled },
+  );
+  afterModuleMutation();
+}
+
+export async function setTenantHrSoloManagerEnabled(
+  tinNumber: string,
+  enabled: boolean,
+) {
+  await apexGraphql(
+    `mutation($tin: String!, $enabled: Boolean!) {
+      setTenantHrSoloManagerEnabled(tinNumber: $tin, enabled: $enabled)
+    }`,
+    { tin: tinNumber, enabled },
+  );
+  afterModuleMutation();
+}
+
+export async function setTenantHrBiometricsEnabled(
+  tinNumber: string,
+  enabled: boolean,
+) {
+  await apexGraphql(
+    `mutation($tin: String!, $enabled: Boolean!) {
+      setTenantHrBiometricsEnabled(tinNumber: $tin, enabled: $enabled)
     }`,
     { tin: tinNumber, enabled },
   );
