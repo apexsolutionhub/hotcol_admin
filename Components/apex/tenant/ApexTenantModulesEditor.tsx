@@ -48,6 +48,8 @@ export function ApexTenantModulesEditor({
   const cafeSelected =
     selected.has("Cafe and Restaurant") || cafeModuleSelected(tenant.modules);
   const hrSelected = selected.has("HR Module");
+  const isCafeBusiness =
+    String(tenant.businessType || "").trim() === "Cafe and Restaurant";
 
   const toggle = (mod: string, checked: boolean) => {
     setSelected((prev) => {
@@ -142,23 +144,28 @@ export function ApexTenantModulesEditor({
 
         {hrSelected ? (
           <>
-            <label
-              htmlFor="hr-solo-manager-enabled"
-              className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/3 px-4 py-3"
-            >
-              <div>
-                <p className="text-sm font-medium">Solo HR Manager (café)</p>
-                <p className="text-xs text-muted-foreground">
-                  When on, café HR ops use the HR Manager role instead of Admin hosting
-                </p>
-              </div>
-              <Switch
-                id="hr-solo-manager-enabled"
-                checked={Boolean(tenant.hrSoloManagerEnabled)}
-                disabled={busy || !hrSelected}
-                onCheckedChange={(v) => onSetHrSoloManagerEnabled(Boolean(v))}
-              />
-            </label>
+            {isCafeBusiness ? (
+              <label
+                htmlFor="hr-solo-manager-enabled"
+                className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/3 px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-medium">Solo HR Manager (café)</p>
+                  <p className="text-xs text-muted-foreground">
+                    When on, café HR ops use the HR Manager role instead of Admin
+                    hosting
+                  </p>
+                </div>
+                <Switch
+                  id="hr-solo-manager-enabled"
+                  checked={Boolean(tenant.hrSoloManagerEnabled)}
+                  disabled={busy || !hrSelected}
+                  onCheckedChange={(v) =>
+                    onSetHrSoloManagerEnabled(Boolean(v))
+                  }
+                />
+              </label>
+            ) : null}
             <label
               htmlFor="hr-biometrics-enabled"
               className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/3 px-4 py-3"
@@ -166,7 +173,8 @@ export function ApexTenantModulesEditor({
               <div>
                 <p className="text-sm font-medium">HR biometrics</p>
                 <p className="text-xs text-muted-foreground">
-                  Enable biometric device sync for attendance; off keeps manual clock only
+                  Enable biometric device sync for attendance; off keeps manual
+                  clock only
                 </p>
               </div>
               <Switch
