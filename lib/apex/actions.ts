@@ -1258,6 +1258,17 @@ export async function updateTenantCafeOrderMode(tinNumber: string, cafeOrderMode
   afterModuleMutation();
 }
 
+/** Replace property logo only — does not change name, TIN, or business type. */
+export async function updateTenantLogo(tinNumber: string, logoUrl: string) {
+  await apexGraphql(
+    `mutation($tin: String!, $logoUrl: String!) {
+      updateTenantLogo(tinNumber: $tin, logoUrl: $logoUrl)
+    }`,
+    { tin: tinNumber, logoUrl },
+  );
+  invalidateApexListCache();
+}
+
 export async function setTenantWaiterOrderingEnabled(
   tinNumber: string,
   enabled: boolean,

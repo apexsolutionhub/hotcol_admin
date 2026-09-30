@@ -33,6 +33,7 @@ import { Button } from "@/Components/ui/button";
 import { ApexPageLoader } from "@/Components/apex/ApexPageLoader";
 import { ApexPageHeader } from "@/Components/apex/layout/ApexPageHeader";
 import { ApexTenantSummaryStrip } from "@/Components/apex/tenant/ApexTenantSummaryStrip";
+import { ApexTenantLogoEditor } from "@/Components/apex/tenant/ApexTenantLogoEditor";
 import {
   ApexTenantSectionNav,
   type TenantTabId,
@@ -113,6 +114,13 @@ export default function TenantDetailPage() {
       />
 
       <ApexTenantSummaryStrip tenant={tenant} />
+
+      <ApexTenantLogoEditor
+        key={`logo-${tenant.tinNumber}-${tenant.logoUrl || ""}`}
+        tenant={tenant}
+        busy={busy}
+        onSaved={() => reload()}
+      />
 
       <ApexTenantSectionNav value={tab} onValueChange={setTab} />
 
