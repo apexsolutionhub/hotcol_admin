@@ -23,6 +23,7 @@ export default function SalesAgentsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount fetch into local agents state
     void reload();
   }, [reload]);
 

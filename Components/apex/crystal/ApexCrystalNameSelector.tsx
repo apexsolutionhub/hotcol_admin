@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/Components/ui/button";
@@ -86,12 +86,15 @@ export function ApexCrystalNameSelector({
     [catalog, search],
   );
 
-  useEffect(() => {
-    if (!open) setSearch("");
-  }, [open]);
-
   return (
-    <Popover open={open} onOpenChange={setOpen} modal={false}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setSearch("");
+      }}
+      modal={false}
+    >
       <PopoverTrigger asChild>
         <Button
           type="button"

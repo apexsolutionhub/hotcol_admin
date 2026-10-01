@@ -51,6 +51,7 @@ export default function CrystalNamesPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount fetch into local catalog state
     void reload();
   }, [reload]);
 
