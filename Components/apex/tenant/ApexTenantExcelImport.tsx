@@ -14,6 +14,7 @@ import {
   PackageMinus,
   ShoppingCart,
   Upload,
+  Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -78,6 +79,13 @@ const KIND_META: Record<
     accent: "apex-stat-topbar-amber",
     iconClass:
       "bg-[oklch(0.32_0.05_75)] text-[oklch(0.92_0.04_75)] ring-1 ring-[oklch(0.7_0.1_75/0.35)]",
+  },
+  employee_registration: {
+    icon: Users,
+    tone: "teal",
+    accent: "apex-stat-topbar-teal",
+    iconClass:
+      "bg-[oklch(0.28_0.05_230)] text-[oklch(0.9_0.04_230)] ring-1 ring-[oklch(0.62_0.12_230/0.4)]",
   },
 };
 
