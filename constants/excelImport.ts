@@ -45,7 +45,8 @@ export const EXCEL_IMPORT_DEPARTMENTS = [
 export type ExcelImportKind =
   | "item_registration"
   | "purchase_request"
-  | "stockout_request";
+  | "stockout_request"
+  | "employee_registration";
 
 export type ExcelImportColumn = {
   key: string;
@@ -61,7 +62,7 @@ export type ExcelImportDefinition = {
   title: string;
   description: string;
   /** Subscription module that unlocks this importer. */
-  requiredModule: "Inventory";
+  requiredModule: "Inventory" | "HR Module";
   /**
    * When true, only lodging business types (Hotel / Resort / Pension).
    * Café & Restaurant never sees these formats.
@@ -378,6 +379,55 @@ export const EXCEL_IMPORT_DEFINITIONS: ExcelImportDefinition[] = [
         stakeHolderOrReason: "Kitchen market buy",
         movementDate: "2026-03-06",
         requestedByDepartment: "KITCHEN",
+      },
+    ],
+  },
+  {
+    kind: "employee_registration",
+    title: "Employee registration",
+    description:
+      "Seed HR employees (full name, department, job title, wage, salary, optional bank). Matches hotcol-user batch hire fields.",
+    requiredModule: "HR Module",
+    sheetName: "Employees",
+    fileBase: "employee_registration",
+    columns: [
+      { key: "fullName", label: "Full name", required: true },
+      { key: "phone", label: "Phone", required: false },
+      { key: "email", label: "Email", required: false },
+      { key: "department", label: "Department", required: false },
+      { key: "jobTitle", label: "Job title", required: false },
+      {
+        key: "wageType",
+        label: "Wage type",
+        required: false,
+        options: ["monthly", "weekly"],
+        hint: "monthly or weekly",
+      },
+      { key: "baseSalaryETB", label: "Base salary (ETB)", required: false },
+      { key: "hireDate", label: "Hire date (YYYY-MM-DD)", required: false },
+      { key: "gender", label: "Gender", required: false },
+      { key: "education", label: "Education", required: false },
+      { key: "personalTin", label: "Personal TIN", required: false },
+      { key: "bankName", label: "Bank name", required: false },
+      { key: "accountNumber", label: "Account number", required: false },
+      { key: "notes", label: "Notes", required: false },
+    ],
+    sampleRows: [
+      {
+        fullName: "Abebe Kebede",
+        phone: "0911000000",
+        email: "",
+        department: "Front desk",
+        jobTitle: "Receptionist",
+        wageType: "monthly",
+        baseSalaryETB: 12000,
+        hireDate: "2026-01-15",
+        gender: "M",
+        education: "Diploma",
+        personalTin: "",
+        bankName: "CBE",
+        accountNumber: "1000123456789",
+        notes: "",
       },
     ],
   },
