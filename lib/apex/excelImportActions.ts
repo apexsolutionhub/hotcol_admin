@@ -16,6 +16,7 @@ const IMPORT_CHUNK_SIZE: Record<ExcelImportKind, number> = {
   item_registration: 40,
   purchase_request: 40,
   stockout_request: 8,
+  employee_registration: 40,
 };
 
 /** Per-chunk client timeout (Vercel may still 504 earlier on free/pro limits). */
