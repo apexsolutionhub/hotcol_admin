@@ -454,11 +454,12 @@ export const EXCEL_IMPORT_DEFINITIONS: ExcelImportDefinition[] = [
           "high_school",
           "certificate",
           "diploma",
+          "degree",
           "bachelor",
           "master",
           "other",
         ],
-        hint: "high_school | certificate | diploma | bachelor | master | other",
+        hint: "high_school | certificate | diploma | degree | bachelor | master | other",
       },
       {
         key: "yearsExperience",
