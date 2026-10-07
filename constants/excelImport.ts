@@ -42,6 +42,17 @@ export const EXCEL_IMPORT_DEPARTMENTS = [
   "STAFF",
 ] as const;
 
+/** Employee imports use HR department names, not inventory department codes. */
+export const EXCEL_IMPORT_EMPLOYEE_DEPARTMENTS = [
+  "Finance",
+  "Front Office",
+  "Food Preparation",
+  "House keeping",
+  "Food and Beverage Service",
+  "Security",
+  "Management",
+] as const;
+
 export type ExcelImportKind =
   | "item_registration"
   | "purchase_request"
@@ -396,8 +407,8 @@ export const EXCEL_IMPORT_DEFINITIONS: ExcelImportDefinition[] = [
         key: "department",
         label: "Department",
         required: true,
-        options: EXCEL_IMPORT_DEPARTMENTS,
-        hint: EXCEL_IMPORT_DEPARTMENTS.join(" | "),
+        options: EXCEL_IMPORT_EMPLOYEE_DEPARTMENTS,
+        hint: EXCEL_IMPORT_EMPLOYEE_DEPARTMENTS.join(" | "),
       },
       {
         key: "wageType",
@@ -464,7 +475,7 @@ export const EXCEL_IMPORT_DEFINITIONS: ExcelImportDefinition[] = [
     sampleRows: [
       {
         fullName: "Abebe Kebede",
-        department: "HR",
+        department: "Front Office",
         wageType: "monthly",
         baseSalaryETB: 12000,
         hireDate: "2026-01-15",
